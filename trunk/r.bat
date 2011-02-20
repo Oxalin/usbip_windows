@@ -1,0 +1,3 @@
+devcon remove "root\USBIPEnum"
+
+
