@@ -5,7 +5,7 @@ rem build 64-bit version in Windows Server 2003 environment
 
 set OCD=%CD%
 
-set TYPE=chk
+set TYPE=fre
 
 IF "%BASEDIR%"=="" (
 set BASEDIR=D:\WinDDK\7600.16385.1
