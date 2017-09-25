@@ -1,0 +1,8 @@
+**/Debug/
+**/Release/
+*.VC.db
+*.vcxproj.user
+**/.vs/
+*.log
+**/objfre_wlh_amd64/
+**/objfre_wlh_x86/
