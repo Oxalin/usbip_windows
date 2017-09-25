@@ -204,6 +204,13 @@ void try_save_config(PPDO_DEVICE_DATA pdodata, struct _URB_CONTROL_DESCRIPTOR_RE
 		KdPrint(("not full len\n"));
 		return;
 	}
+	
+	if (cfg->wTotalLength < in_len) {
+		KdPrint(("lenth has something wrong,fix it to suport some usb devices, wTotalLength=%d in_len=%d\n", cfg->wTotalLength, in_len));
+		in_len = cfg->wTotalLength;
+		KdPrint(("edit by gd67 \n"));
+	}
+	
 	if(cfg->bDescriptorType!=USB_CONFIGURATION_DESCRIPTOR_TYPE||
 			cfg->wTotalLength!=in_len){
 		KdPrint(("not full cfg\n"));
