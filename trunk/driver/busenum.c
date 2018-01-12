@@ -204,6 +204,13 @@ void try_save_config(PPDO_DEVICE_DATA pdodata, struct _URB_CONTROL_DESCRIPTOR_RE
 		KdPrint(("not full len\n"));
 		return;
 	}
+
+	if (cfg->wTotalLength < in_len) {
+		KdPrint(("length has something wrong, fix it to support some usb devices, wTotalLength=%d in_len=%d\n", cfg->wTotalLength, in_len));
+		in_len = cfg->wTotalLength;
+		KdPrint(("edit by gd67 \n"));
+	}
+
 	if(cfg->bDescriptorType!=USB_CONFIGURATION_DESCRIPTOR_TYPE||
 			cfg->wTotalLength!=in_len){
 		KdPrint(("not full cfg\n"));
@@ -288,7 +295,7 @@ static void copy_iso_data(char *dest, ULONG dest_len,
 	for(i=0;i<urb->NumberOfPackets;i++){
 
 //		KdPrint(("ISO Packet: [%d] len: %d stat: %d off: %d\n",i,urb->IsoPacket[i].Length,urb->IsoPacket[i].Status,urb->IsoPacket[i].Offset));
-		
+
 		if(!urb->IsoPacket[i].Length)
 			continue;
 
@@ -357,7 +364,7 @@ int process_write_irp(PPDO_DEVICE_DATA pdodata, PIRP irp)
     KeReleaseSpinLock(&pdodata->q_lock, oldirql);
 
 	irp->IoStatus.Information = len;
-    
+
 	if(!found){
 	    KdPrint(("Cannot find urb with seqnum %d\n", h->base.seqnum));
 // Might have been cancelled before, so return STATUS_SUCCES
@@ -1684,7 +1691,7 @@ int try_addq(PPDO_DEVICE_DATA pdodata, PIRP Irp)
     if(NULL==read_irp)
 	    return STATUS_PENDING;
     read_irp->IoStatus.Status = set_read_irp_data(read_irp, Irp, seq_num, pdodata->devid);
-	
+
     if(read_irp->IoStatus.Status == STATUS_SUCCESS){
 		KeAcquireSpinLock(&pdodata->q_lock, &oldirql);
 		urb_r->send = 1;
@@ -1734,7 +1741,7 @@ Bus_Internal_IoCtl (
     }
 
     pdoData = (PPDO_DEVICE_DATA) DeviceObject->DeviceExtension;
-    
+
 if (pdoData->Present==FALSE) {
         Irp->IoStatus.Status = status = STATUS_DEVICE_NOT_CONNECTED;
         IoCompleteRequest (Irp, IO_NO_INCREMENT);
@@ -2039,5 +2046,3 @@ Return Value:
 
     return;
 }
-
-
