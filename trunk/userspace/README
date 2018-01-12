@@ -6,66 +6,66 @@
 
 
 [Requirements]
-    - USB/IP device drivers
-        Its source code is included under $(top)/drivers/.
+  - USB/IP device drivers
+      Its source code is included under $(top)/drivers/.
 
-    - sysfsutils >= 2.0.0
-        sysfsutils library
+  - sysfsutils >= 2.0.0
+      sysfsutils library
 
-    - libwrap0-dev
-        tcp wrapper library
+  - libwrap0-dev
+      tcp wrapper library
 
-    - gcc >= 4.0
+  - gcc >= 4.0
 
-    - libglib2.0-dev >= 2.6.0
+  - libglib2.0-dev >= 2.6.0
 
-    - libtool, automake >= 1.9, autoconf >= 2.5.0, pkg-config
+  - libtool, automake >= 1.9, autoconf >= 2.5.0, pkg-config
 
 [Install]
-    0. Skip here if you see a configure script.
-        $ ./autogen.sh
+  0. Skip here if you see a configure script.
+      $ ./autogen.sh
 
-    1. Compile & install.
-        $ ./configure
-        $ make install
+  1. Compile & install.
+      $ ./configure
+      $ make install
 
-    2. Compile & install USB/IP drivers if not yet.
+  2. Compile & install USB/IP drivers if not yet.
 
 [Usage]
-    server:# (Attach your USB device physically.)
+  server:# (Attach your USB device physically.)
 
-    server:# insmod usbip-core.ko
-    server:# insmod usbip-host.ko
-        - It was formerly named as stub.ko.
+  server:# insmod usbip-core.ko
+  server:# insmod usbip-host.ko
+    - It was formerly named as stub.ko.
 
-    server:# usbipd -D
-        - Start usbip daemon.
+  server:# usbipd -D
+    - Start usbip daemon.
 
-    server:# usbip_bind_driver --list
-        - List driver assignments for usb devices.
+  server:# usbip_bind_driver --list
+    - List driver assignments for usb devices.
 
-    server:# usbip_bind_driver --usbip 1-2
-        - Bind usbip-host.ko to the device of busid 1-2.
-        - A usb device 1-2 is now exportable to other hosts!
-        - Use 'usbip_bind_driver --other 1-2' when you want to shutdown exporting
-          and use the device locally.
+  server:# usbip_bind_driver --usbip 1-2
+    - Bind usbip-host.ko to the device of busid 1-2.
+    - A usb device 1-2 is now exportable to other hosts!
+    - Use 'usbip_bind_driver --other 1-2' when you want to shutdown exporting
+      and use the device locally.
 
 
-    client:# insmod usbip-core.ko
-    client:# insmod vhci-hcd.ko
-        - It was formerly named as vhci.ko.
+  client:# insmod usbip-core.ko
+  client:# insmod vhci-hcd.ko
+    - It was formerly named as vhci.ko.
 
-    client:# usbip --list server
-        - List exportable usb devices on the server.
+  client:# usbip --list server
+    - List exportable usb devices on the server.
 
-    client:# usbip --attach server 1-2
-        - Connect the remote USB device.
+  client:# usbip --attach server 1-2
+    - Connect the remote USB device.
 
-    client:# usbip --port
-        - Show virtual port status.
+  client:# usbip --port
+    - Show virtual port status.
 
-    client:# usbip --detach 0
-        - Detach the usb device.
+  client:# usbip --detach 0
+    - Detach the usb device.
 
 
 [Output Example]
