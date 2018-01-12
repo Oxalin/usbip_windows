@@ -27,7 +27,6 @@ Bus_PDO_PnP (
 /*++
 Routine Description:
     Handle requests from the Plug & Play system for the devices on the BUS
-
 --*/
 {
     NTSTATUS                status;
@@ -70,7 +69,7 @@ Routine Description:
 
 
         SET_NEW_PNP_STATE(DeviceData, Stopped);
-	IoSetDeviceInterfaceState(&DeviceData->usb_dev_interface, FALSE);
+        IoSetDeviceInterfaceState(&DeviceData->usb_dev_interface, FALSE);
         status = STATUS_SUCCESS;
         break;
 
@@ -1498,7 +1497,3 @@ GetDeviceCapabilitiesExit:
     return status;
 
 }
-
-
-
-

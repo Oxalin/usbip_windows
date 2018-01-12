@@ -6,22 +6,21 @@
 #include "public.h"
 
 //
-// Let us use newly introduced (Windows Server 2003 DDK) safe string function to avoid
-// security issues related buffer overrun.
+// Let us use newly introduced (Windows Server 2003 DDK) safe string function
+// to avoid security issues related buffer overrun.
 // The advantages of the RtlStrsafe functions include:
-// 1) The size of the destination buffer is always provided to the
-// function to ensure that the function does not write past the end of
-// the buffer.
-// 2) Buffers are guaranteed to be null-terminated, even if the
-// operation truncates the intended result.
+//   1) The size of the destination buffer is always provided to the function
+//      to ensure that the function does not write past the end of the buffer.
+//   2) Buffers are guaranteed to be null-terminated, even if the operation
+//      truncates the intended result.
 //
 
 //
 // In this driver we are using a safe version swprintf, which is
 // RtlStringCchPrintfW. To use strsafe function on 9x, ME, and Win2K Oses, we
 // have to define NTSTRSAFE_LIB before including this header file and explicitly
-// linking to ntstrsafe.lib. If your driver is just targeted for XP and above, there is
-// no need to define NTSTRSAFE_LIB and link to the lib.
+// linking to ntstrsafe.lib. If your driver is just targeted for XP and above,
+// there is no need to define NTSTRSAFE_LIB and link to the lib.
 //
 #define NTSTRSAFE_LIB
 #include <ntstrsafe.h>
@@ -132,10 +131,7 @@ typedef enum _DEVICE_PNP_STATE {
 
 typedef struct _GLOBALS {
 
-    //
     // Path to the driver's Services Key in the registry
-    //
-
     UNICODE_STRING RegistryPath;
 
 } GLOBALS;
@@ -149,15 +145,10 @@ extern GLOBALS Globals;
 
 typedef struct _USBIP_BUS_WMI_STD_DATA {
 
-    //
     // The error Count
-    //
     UINT32   ErrorCount;
 
-    //
     // Debug Print Level
-    //
-
     UINT32  DebugPrintLevel;
 
 } USBIP_BUS_WMI_STD_DATA, * PUSBIP_BUS_WMI_STD_DATA;
@@ -170,31 +161,23 @@ typedef struct _USBIP_BUS_WMI_STD_DATA {
 typedef struct _COMMON_DEVICE_DATA
 {
     // A back pointer to the device object for which this is the extension
-
     PDEVICE_OBJECT  Self;
 
     // This flag helps distinguish between PDO and FDO
-
     BOOLEAN         IsFDO;
 
     // We track the state of the device with every PnP Irp
     // that affects the device through these two variables.
-
     DEVICE_PNP_STATE DevicePnPState;
-
     DEVICE_PNP_STATE PreviousPnPState;
-
 
     ULONG           DebugLevel;
 
     // Stores the current system power state
-
     SYSTEM_POWER_STATE  SystemPowerState;
 
     // Stores current device power state
-
     DEVICE_POWER_STATE  DevicePowerState;
-
 
 } COMMON_DEVICE_DATA, *PCOMMON_DEVICE_DATA;
 
@@ -208,40 +191,31 @@ typedef struct _PDO_DEVICE_DATA
     COMMON_DEVICE_DATA;
 
     // A back pointer to the bus
-
     PDEVICE_OBJECT  ParentFdo;
 
     // An array of (zero terminated wide character strings).
     // The array itself also null terminated
-
     PWCHAR      HardwareIDs;
     PWCHAR	compatible_ids;
     ULONG	compatible_ids_len;
 
-    // Unique serail number of the device on the bus
-
+    // Unique serial number of the device on the bus
     ULONG SerialNo;
 
     // Link point to hold all the PDOs for a single bus together
-
     LIST_ENTRY  Link;
 
-    //
     // Present is set to TRUE when the PDO is exposed via PlugIn IOCTL,
     // and set to FALSE when a UnPlug IOCTL is received.
     // We will delete the PDO in IRP_MN_REMOVE only after we have reported
     // to the Plug and Play manager that it's missing.
-    //
-
     BOOLEAN     Present;
     BOOLEAN     ReportedMissing;
     UCHAR	speed;
     UCHAR	unused; /* 4 bytes alignment */
 
-    //
     // Used to track the intefaces handed out to other drivers.
     // If this value is non-zero, we fail query-remove.
-    //
     ULONG       InterfaceRefCount;
     PIRP	pending_read_irp;
     LIST_ENTRY  ioctl_q;
@@ -254,21 +228,18 @@ typedef struct _PDO_DEVICE_DATA
     KDPC dpc;
     UNICODE_STRING  usb_dev_interface;
 
-    //
     // In order to reduce the complexity of the driver, I chose not
     // to use any queues for holding IRPs when the system tries to
     // rebalance resources to accommodate a new device, and stops our
     // device temporarily. But in a real world driver this is required.
     // If you hold Irps then you should also support Cancel and
     // Cleanup functions. The function driver demonstrates these techniques.
-    //
+
     // The queue where the incoming requests are held when
     // the device is stopped for resource rebalance.
-
     //LIST_ENTRY          PendingQueue;
 
     // The spin lock that protects access to  the queue
-
     //KSPIN_LOCK          PendingQueueLock;
 
 
@@ -287,50 +258,33 @@ typedef struct _FDO_DEVICE_DATA
 
     // The underlying bus PDO and the actual device object to which our
     // FDO is attached
-
     PDEVICE_OBJECT  NextLowerDriver;
 
     // List of PDOs created so far
-
     LIST_ENTRY      ListOfPDOs;
 
     // The PDOs currently enumerated.
-
     ULONG           NumPDOs;
 
     // A synchronization for access to the device extension.
-
     FAST_MUTEX      Mutex;
 
-    //
     // The number of IRPs sent from the bus to the underlying device object
-    //
-
     ULONG           OutstandingIO; // Biased to 1
 
-    //
     // On remove device plug & play request we must wait until all outstanding
     // requests have been completed before we can actually delete the device
     // object. This event is when the Outstanding IO count goes to zero
-    //
-
     KEVENT          RemoveEvent;
 
-    //
     // This event is set when the Outstanding IO count goes to 1.
-    //
-
     KEVENT          StopEvent;
 
     // The name returned from IoRegisterDeviceInterface,
     // which is used as a handle for IoSetDeviceInterfaceState.
-
     UNICODE_STRING      InterfaceName;
 
-    //
     // WMI Information
-    //
-
     WMILIB_CONTEXT         WmiLibInfo;
 
     USBIP_BUS_WMI_STD_DATA   StdUSBIPBusData;
@@ -623,7 +577,7 @@ Bus_SetWmiDataItem(
     );
 
 WMI_SET_DATABLOCK_CALLBACK Bus_SetWmiDataBlock;
-	
+
 NTSTATUS
 Bus_SetWmiDataBlock(
     __in PDEVICE_OBJECT DeviceObject,
@@ -649,7 +603,7 @@ Bus_QueryWmiDataBlock(
     );
 
 WMI_QUERY_REGINFO_CALLBACK Bus_QueryWmiRegInfo;
-	
+
 NTSTATUS
 Bus_QueryWmiRegInfo(
     __in PDEVICE_OBJECT DeviceObject,
@@ -661,6 +615,3 @@ Bus_QueryWmiRegInfo(
     );
 
 #endif
-
-
-

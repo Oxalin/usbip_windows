@@ -5,5 +5,3 @@
 #
 
 !INCLUDE $(NTMAKEENV)\makefile.def
-
-
