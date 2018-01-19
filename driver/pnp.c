@@ -978,6 +978,7 @@ extern NPAGED_LOOKASIDE_LIST g_lookaside;
 void complete_pending_read_irp(PPDO_DEVICE_DATA pdodata)
 {
 	KIRQL oldirql;
+	KIRQL oldirql2;
 	PIRP irp;
 
 	KeAcquireSpinLock(&pdodata->q_lock, &oldirql);
@@ -988,7 +989,9 @@ void complete_pending_read_irp(PPDO_DEVICE_DATA pdodata)
 		return;
 	irp->IoStatus.Status = STATUS_DEVICE_NOT_CONNECTED;
 	IoSetCancelRoutine(irp, NULL);
+	KeRaiseIrql(DISPATCH_LEVEL, &oldirql2);
 	IoCompleteRequest (irp, IO_NO_INCREMENT);
+	KeLowerIrql(oldirql2);
 	return;
 }
 
@@ -998,6 +1001,7 @@ void complete_pending_irp(PPDO_DEVICE_DATA pdodata)
     struct urb_req * urb_r;
     PLIST_ENTRY le;
     KIRQL oldirql;
+    KIRQL oldirql2;
     int count=0;
 	LARGE_INTEGER interval;
 
@@ -1031,7 +1035,9 @@ void complete_pending_irp(PPDO_DEVICE_DATA pdodata)
 	ExFreeToNPagedLookasideList(&g_lookaside, urb_r);
 	irp->IoStatus.Status = STATUS_DEVICE_NOT_CONNECTED;
 	IoSetCancelRoutine(irp, NULL);
+	KeRaiseIrql(DISPATCH_LEVEL, &oldirql2);
 	IoCompleteRequest (irp, IO_NO_INCREMENT);
+	KeLowerIrql(oldirql2);
 	count++;
     }while(1);
 }
