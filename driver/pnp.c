@@ -17,11 +17,6 @@
 #pragma alloc_text (PAGE, Bus_EjectDevice)
 #endif
 
-NTSTATUS
-Bus_AddDevice(
-    __in PDRIVER_OBJECT DriverObject,
-    __in PDEVICE_OBJECT PhysicalDeviceObject
-    )
 /*++
 Routine Description.
 
@@ -37,36 +32,37 @@ Arguments:
                             will attach a new FDO.
 
 --*/
-{
-    NTSTATUS            status;
-    PDEVICE_OBJECT      deviceObject = NULL;
-    PFDO_DEVICE_DATA    deviceData = NULL;
-    PWCHAR              deviceName = NULL;
-    ULONG               nameLength;
-    PKTIMER		timer;
-    PKDPC		dpc;
+NTSTATUS Bus_AddDevice(__in PDRIVER_OBJECT DriverObject,
+                        __in PDEVICE_OBJECT PhysicalDeviceObject) {
+    NTSTATUS status;
+    PDEVICE_OBJECT deviceObject = NULL;
+    PFDO_DEVICE_DATA deviceData = NULL;
+    PWCHAR deviceName = NULL;
+    ULONG nameLength;
+    PKTIMER timer;
+    PKDPC dpc;
 
-    PAGED_CODE ();
+    PAGED_CODE();
 
-    Bus_KdPrint_Def (BUS_DBG_SS_TRACE, ("Add Device: 0x%p\n",
+    Bus_KdPrint_Def(BUS_DBG_SS_TRACE, ("Add Device: 0x%p\n",
                                           PhysicalDeviceObject));
 
-    status = IoCreateDevice (
-                    DriverObject,               // our driver object
-                    sizeof (FDO_DEVICE_DATA),   // device object extension size
-                    NULL,                       // FDOs do not have names
-                    FILE_DEVICE_BUS_EXTENDER,   // We are a bus
-                    FILE_DEVICE_SECURE_OPEN,    //
-                    TRUE,                       // our FDO is exclusive
-                    &deviceObject);             // The device object created
+    status = IoCreateDevice(
+                DriverObject,               // our driver object
+                sizeof (FDO_DEVICE_DATA),   // device object extension size
+                NULL,                       // FDOs do not have names
+                FILE_DEVICE_BUS_EXTENDER,   // We are a bus
+                FILE_DEVICE_SECURE_OPEN,    //
+                TRUE,                       // our FDO is exclusive
+                &deviceObject);             // The device object created
 
-    if (!NT_SUCCESS (status))
+    if (!NT_SUCCESS(status))
     {
         goto End;
     }
 
     deviceData = (PFDO_DEVICE_DATA) deviceObject->DeviceExtension;
-    RtlZeroMemory (deviceData, sizeof (FDO_DEVICE_DATA));
+    RtlZeroMemory(deviceData, sizeof (FDO_DEVICE_DATA));
 
     //
     // Set the initial state of the FDO
@@ -80,18 +76,16 @@ Arguments:
 
     deviceData->Self = deviceObject;
 
-    ExInitializeFastMutex (&deviceData->Mutex);
+    ExInitializeFastMutex(&deviceData->Mutex);
 
-    InitializeListHead (&deviceData->ListOfPDOs);
+    InitializeListHead(&deviceData->ListOfPDOs);
 
     // Set the PDO for use with PlugPlay functions
-
     deviceData->UnderlyingPDO = PhysicalDeviceObject;
 
     //
     // Set the initial powerstate of the FDO
     //
-
     deviceData->DevicePowerState = PowerDeviceUnspecified;
     deviceData->SystemPowerState = PowerSystemWorking;
 
@@ -101,27 +95,21 @@ Arguments:
     // means IO is finished. Transition to 1 means the device
     // can be stopped.
     //
-
     deviceData->OutstandingIO = 1;
 
     //
-    // Initialize the remove event to Not-Signaled.  This event
+    // Initialize the remove event to Not-Signaled. This event
     // will be set when the OutstandingIO will become 0.
     //
+    KeInitializeEvent(&deviceData->RemoveEvent, SynchronizationEvent, FALSE);
 
-    KeInitializeEvent(&deviceData->RemoveEvent,
-                  SynchronizationEvent,
-                  FALSE);
     //
     // Initialize the stop event to Signaled:
     // there are no Irps that prevent the device from being
     // stopped. This event will be set when the OutstandingIO
     // will become 0.
     //
-
-    KeInitializeEvent(&deviceData->StopEvent,
-                      SynchronizationEvent,
-                      TRUE);
+    KeInitializeEvent(&deviceData->StopEvent, SynchronizationEvent, TRUE);
 
     deviceObject->Flags |= DO_POWER_PAGABLE|DO_BUFFERED_IO;
 
@@ -129,16 +117,15 @@ Arguments:
     // Tell the Plug & Play system that this device will need a
     // device interface.
     //
-
-    status = IoRegisterDeviceInterface (
+    status = IoRegisterDeviceInterface(
                 PhysicalDeviceObject,
                 (LPGUID) &GUID_DEVINTERFACE_BUSENUM_USBIP,
                 NULL,
                 &deviceData->InterfaceName);
 
-    if (!NT_SUCCESS (status)) {
-        Bus_KdPrint (deviceData, BUS_DBG_SS_ERROR,
-                      ("AddDevice: IoRegisterDeviceInterface failed (%x)", status));
+    if (!NT_SUCCESS(status)) {
+        Bus_KdPrint(deviceData, BUS_DBG_SS_ERROR,
+                    ("AddDevice: IoRegisterDeviceInterface failed (%x)", status));
         goto End;
     }
 
@@ -147,13 +134,11 @@ Arguments:
     // The return value of IoAttachDeviceToDeviceStack is the top of the
     // attachment chain.  This is where all the IRPs should be routed.
     //
-
-    deviceData->NextLowerDriver = IoAttachDeviceToDeviceStack (
-                                    deviceObject,
-                                    PhysicalDeviceObject);
+    deviceData->NextLowerDriver = IoAttachDeviceToDeviceStack(
+                                      deviceObject,
+                                      PhysicalDeviceObject);
 
     if (NULL == deviceData->NextLowerDriver) {
-
         status = STATUS_NO_SUCH_DEVICE;
         goto End;
     }
@@ -164,7 +149,7 @@ Arguments:
     // We will demonstrate here the step to retrieve the name of the PDO
     //
 
-    status = IoGetDeviceProperty (PhysicalDeviceObject,
+    status = IoGetDeviceProperty(PhysicalDeviceObject,
                                   DevicePropertyPhysicalDeviceObjectName,
                                   0,
                                   NULL,
@@ -172,40 +157,40 @@ Arguments:
 
     if (status != STATUS_BUFFER_TOO_SMALL)
     {
-        Bus_KdPrint (deviceData, BUS_DBG_SS_ERROR,
-                      ("AddDevice:IoGDP failed (0x%x)\n", status));
+        Bus_KdPrint(deviceData, BUS_DBG_SS_ERROR,
+                    ("AddDevice:IoGDP failed (0x%x)\n", status));
         goto End;
     }
 
-    deviceName = ExAllocatePoolWithTag (NonPagedPool,
-                            nameLength, BUSENUM_POOL_TAG);
+    deviceName = ExAllocatePoolWithTag(NonPagedPool, nameLength,
+                                       BUSENUM_POOL_TAG);
 
     if (NULL == deviceName) {
-        Bus_KdPrint (deviceData, BUS_DBG_SS_ERROR,
-        ("AddDevice: no memory to alloc for deviceName(0x%x)\n", nameLength));
+        Bus_KdPrint(deviceData, BUS_DBG_SS_ERROR,
+                    ("AddDevice: no memory to alloc for deviceName(0x%x)\n",
+                     nameLength));
         status =  STATUS_INSUFFICIENT_RESOURCES;
         goto End;
     }
 
-    status = IoGetDeviceProperty (PhysicalDeviceObject,
-                         DevicePropertyPhysicalDeviceObjectName,
-                         nameLength,
-                         deviceName,
-                         &nameLength);
+    status = IoGetDeviceProperty(PhysicalDeviceObject,
+                                 DevicePropertyPhysicalDeviceObjectName,
+                                 nameLength,
+                                 deviceName,
+                                 &nameLength);
 
-    if (!NT_SUCCESS (status)) {
-
-        Bus_KdPrint (deviceData, BUS_DBG_SS_ERROR,
-                      ("AddDevice:IoGDP(2) failed (0x%x)", status));
+    if (!NT_SUCCESS(status)) {
+        Bus_KdPrint(deviceData, BUS_DBG_SS_ERROR,
+                    ("AddDevice:IoGDP(2) failed (0x%x)", status));
         goto End;
     }
 
-    Bus_KdPrint (deviceData, BUS_DBG_SS_TRACE,
-                  ("AddDevice: %p to %p->%p (%ws) \n",
-                   deviceObject,
-                   deviceData->NextLowerDriver,
-                   PhysicalDeviceObject,
-                   deviceName));
+    Bus_KdPrint(deviceData, BUS_DBG_SS_TRACE,
+                ("AddDevice: %p to %p->%p (%ws) \n",
+                 deviceObject,
+                 deviceData->NextLowerDriver,
+                 PhysicalDeviceObject,
+                 deviceName));
 
 #endif
 
@@ -220,22 +205,16 @@ End:
         ExFreePool(deviceName);
     }
 
-    if (!NT_SUCCESS(status) && deviceObject){
+    if (!NT_SUCCESS(status) && deviceObject) {
         if (deviceData && deviceData->NextLowerDriver){
-            IoDetachDevice (deviceData->NextLowerDriver);
+            IoDetachDevice(deviceData->NextLowerDriver);
         }
-        IoDeleteDevice (deviceObject);
+        IoDeleteDevice(deviceObject);
     }
 
     return status;
-
 }
 
-NTSTATUS
-Bus_PnP (
-    __in PDEVICE_OBJECT   DeviceObject,
-    __in PIRP             Irp
-    )
 /*++
 Routine Description:
     Handles PnP Irps sent to both FDO and child PDOs.
@@ -247,18 +226,17 @@ Return Value:
 
     NT Status is returned.
 --*/
-{
-    PIO_STACK_LOCATION      irpStack;
-    NTSTATUS                status;
-    PCOMMON_DEVICE_DATA     commonData;
+NTSTATUS Bus_PnP(__in PDEVICE_OBJECT DeviceObject, __in PIRP Irp) {
+    PIO_STACK_LOCATION irpStack;
+    NTSTATUS status;
+    PCOMMON_DEVICE_DATA commonData;
 
-    PAGED_CODE ();
-
+    PAGED_CODE();
 
     KdPrint(("Bus_PnP\r\n"));
 
-    irpStack = IoGetCurrentIrpStackLocation (Irp);
-    ASSERT (IRP_MJ_PNP == irpStack->MajorFunction);
+    irpStack = IoGetCurrentIrpStackLocation(Irp);
+    ASSERT(IRP_MJ_PNP == irpStack->MajorFunction);
 
     commonData = (PCOMMON_DEVICE_DATA) DeviceObject->DeviceExtension;
 
@@ -266,78 +244,65 @@ Return Value:
     // If the device has been removed, the driver should
     // not pass the IRP down to the next lower driver.
     //
-
     if (commonData->DevicePnPState == Deleted) {
         Irp->IoStatus.Status = status = STATUS_NO_SUCH_DEVICE ;
-        IoCompleteRequest (Irp, IO_NO_INCREMENT);
+        IoCompleteRequest(Irp, IO_NO_INCREMENT);
         return status;
     }
 
-
     if (commonData->IsFDO) {
-        Bus_KdPrint (commonData, BUS_DBG_PNP_TRACE,
-                      ("FDO %s IRP:0x%p\n",
-                      PnPMinorFunctionString(irpStack->MinorFunction),
-                      Irp));
+        Bus_KdPrint(commonData, BUS_DBG_PNP_TRACE,
+                    ("FDO %s IRP:0x%p\n",
+                     PnPMinorFunctionString(irpStack->MinorFunction),
+                     Irp));
         //
         // Request is for the bus FDO
         //
-        status = Bus_FDO_PnP (
-                    DeviceObject,
-                    Irp,
-                    irpStack,
-                    (PFDO_DEVICE_DATA) commonData);
-    } else {
-        Bus_KdPrint (commonData, BUS_DBG_PNP_TRACE,
+        status = Bus_FDO_PnP(DeviceObject, Irp, irpStack,
+                             (PFDO_DEVICE_DATA) commonData);
+    }
+    else {
+        Bus_KdPrint(commonData, BUS_DBG_PNP_TRACE,
                       ("PDO %s IRP: 0x%p\n",
                       PnPMinorFunctionString(irpStack->MinorFunction),
                       Irp));
         //
         // Request is for the child PDO.
         //
-        status = Bus_PDO_PnP (
-                    DeviceObject,
-                    Irp,
-                    irpStack,
-                    (PPDO_DEVICE_DATA) commonData);
+        status = Bus_PDO_PnP(DeviceObject, Irp, irpStack,
+                             (PPDO_DEVICE_DATA) commonData);
     }
 
     return status;
 }
 
-NTSTATUS
-Bus_FDO_PnP (
-    __in PDEVICE_OBJECT       DeviceObject,
-    __in PIRP                 Irp,
-    __in PIO_STACK_LOCATION   IrpStack,
-    __in PFDO_DEVICE_DATA     DeviceData
-    )
 /*++
 Routine Description:
 
     Handle requests from the Plug & Play system for the BUS itself
 
 --*/
-{
-    NTSTATUS            status;
-    ULONG               length, prevcount, numPdosPresent;
-    PLIST_ENTRY         entry, listHead, nextEntry;
-    PPDO_DEVICE_DATA    pdoData;
-    PDEVICE_RELATIONS   relations, oldRelations;
+NTSTATUS Bus_FDO_PnP(__in PDEVICE_OBJECT DeviceObject, __in PIRP Irp,
+                      __in PIO_STACK_LOCATION IrpStack,
+                      __in PFDO_DEVICE_DATA DeviceData) {
+    NTSTATUS status;
+    ULONG length, prevcount, numPdosPresent;
+    PLIST_ENTRY entry, listHead, nextEntry;
+    PPDO_DEVICE_DATA pdoData;
+    PDEVICE_RELATIONS relations, oldRelations;
 
-    PAGED_CODE ();
+    PAGED_CODE();
 
-    Bus_IncIoCount (DeviceData);
+    Bus_IncIoCount(DeviceData);
 
     switch (IrpStack->MinorFunction) {
-
     case IRP_MN_START_DEVICE:
 
         //
         // Send the Irp down and wait for it to come back.
         // Do not touch the hardware until then.
         //
-        status = Bus_SendIrpSynchronously (DeviceData->NextLowerDriver, Irp);
+        status = Bus_SendIrpSynchronously(DeviceData->NextLowerDriver, Irp);
 
         if (NT_SUCCESS(status)) {
 
@@ -345,17 +310,16 @@ Routine Description:
             // Initialize your device with the resources provided
             // by the PnP manager to your device.
             //
-            status = Bus_StartFdo (DeviceData, Irp);
+            status = Bus_StartFdo(DeviceData, Irp);
         }
 
         //
         // We must now complete the IRP, since we stopped it in the
         // completion routine with MORE_PROCESSING_REQUIRED.
         //
-
         Irp->IoStatus.Status = status;
-        IoCompleteRequest (Irp, IO_NO_INCREMENT);
-        Bus_DecIoCount (DeviceData);
+        IoCompleteRequest(Irp, IO_NO_INCREMENT);
+        Bus_DecIoCount(DeviceData);
 
         return status;
 
@@ -378,13 +342,11 @@ Routine Description:
         // device that the device will not be stopped for
         // resource reconfiguration.
         //
-        //
         // First check to see whether you have received cancel-stop
         // without first receiving a query-stop. This could happen if
         //  someone above us fails a query-stop and passes down the subsequent
         // cancel-stop.
         //
-
         if (StopPending == DeviceData->DevicePnPState)
         {
             //
@@ -406,27 +368,23 @@ Routine Description:
         // To do that, first we will decrement this very operation.
         // When the counter goes to 1, Stop event is set.
         //
-
         Bus_DecIoCount(DeviceData);
 
-        KeWaitForSingleObject(
-                   &DeviceData->StopEvent,
-                   Executive, // Waiting reason of a driver
-                   KernelMode, // Waiting in kernel mode
-                   FALSE, // No allert
-                   NULL); // No timeout
+        KeWaitForSingleObject(&DeviceData->StopEvent,
+                               Executive, // Waiting reason of a driver
+                               KernelMode, // Waiting in kernel mode
+                               FALSE, // No allert
+                               NULL); // No timeout
 
         //
         // Increment the counter back because this IRP has to
         // be sent down to the lower stack.
         //
-
-        Bus_IncIoCount (DeviceData);
+        Bus_IncIoCount(DeviceData);
 
         //
         // Free resources given by start device.
         //
-
         SET_NEW_PNP_STATE(DeviceData, Stopped);
 
         //
@@ -435,7 +393,6 @@ Routine Description:
         // Set the current stack location to the next stack location and
         // call the next device object.
         //
-
         Irp->IoStatus.Status = STATUS_SUCCESS;
         break;
 
@@ -446,7 +403,6 @@ Routine Description:
         // IRP here.  Since we are not, set the status to SUCCESS and
         // call the next driver.
         //
-
         SET_NEW_PNP_STATE(DeviceData, RemovePending);
 
         Irp->IoStatus.Status = STATUS_SUCCESS;
@@ -456,17 +412,14 @@ Routine Description:
 
         //
         // If we were to fail this call then we would need to complete the
-        // IRP here.  Since we are not, set the status to SUCCESS and
+        // IRP here. Since we are not, set the status to SUCCESS and
         // call the next driver.
-        //
-
         //
         // First check to see whether you have received cancel-remove
         // without first receiving a query-remove. This could happen if
         // someone above us fails a query-remove and passes down the
         // subsequent cancel-remove.
         //
-
         if (RemovePending == DeviceData->DevicePnPState)
         {
             //
@@ -474,7 +427,7 @@ Routine Description:
             //
             RESTORE_PREVIOUS_PNP_STATE(DeviceData);
         }
-        Irp->IoStatus.Status = STATUS_SUCCESS;// You must not fail the IRP.
+        Irp->IoStatus.Status = STATUS_SUCCESS; // You must not fail the IRP.
         break;
 
     case IRP_MN_SURPRISE_REMOVAL:
@@ -486,26 +439,25 @@ Routine Description:
         // with WMI, but it doesn't delete the FDO. That's done
         // later in Remove device query.
         //
-
         SET_NEW_PNP_STATE(DeviceData, SurpriseRemovePending);
         Bus_RemoveFdo(DeviceData);
 
-        ExAcquireFastMutex (&DeviceData->Mutex);
+        ExAcquireFastMutex(&DeviceData->Mutex);
 
         listHead = &DeviceData->ListOfPDOs;
 
-        for(entry = listHead->Flink,nextEntry = entry->Flink;
-            entry != listHead;
-            entry = nextEntry,nextEntry = entry->Flink) {
+        for (entry = listHead->Flink,nextEntry = entry->Flink;
+             entry != listHead;
+             entry = nextEntry,nextEntry = entry->Flink) {
 
-            pdoData = CONTAINING_RECORD (entry, PDO_DEVICE_DATA, Link);
-            RemoveEntryList (&pdoData->Link);
-            InitializeListHead (&pdoData->Link);
+            pdoData = CONTAINING_RECORD(entry, PDO_DEVICE_DATA, Link);
+            RemoveEntryList(&pdoData->Link);
+            InitializeListHead(&pdoData->Link);
             pdoData->ParentFdo  = NULL;
             pdoData->ReportedMissing = TRUE;
         }
 
-        ExReleaseFastMutex (&DeviceData->Mutex);
+        ExReleaseFastMutex(&DeviceData->Mutex);
 
         Irp->IoStatus.Status = STATUS_SUCCESS; // You must not fail the IRP.
         break;
@@ -516,13 +468,9 @@ Routine Description:
         // The Plug & Play system has dictated the removal of this device.
         // We have no choice but to detach and delete the device object.
         //
-
-        //
         // Check the state flag to see whether you are surprise removed
         //
-
-        if (DeviceData->DevicePnPState != SurpriseRemovePending)
-        {
+        if (DeviceData->DevicePnPState != SurpriseRemovePending) {
             Bus_RemoveFdo(DeviceData);
         }
 
@@ -534,21 +482,15 @@ Routine Description:
         // the beginning of this function, the other for the 1-biased value of
         // OutstandingIO.
         //
-
-        Bus_DecIoCount (DeviceData);
+        Bus_DecIoCount(DeviceData);
 
         //
         // The requestCount is at least one here (is 1-biased)
         //
+        Bus_DecIoCount(DeviceData);
 
-        Bus_DecIoCount (DeviceData);
-
-        KeWaitForSingleObject (
-                &DeviceData->RemoveEvent,
-                Executive,
-                KernelMode,
-                FALSE,
-                NULL);
+        KeWaitForSingleObject(&DeviceData->RemoveEvent, Executive, KernelMode,
+                              FALSE, NULL);
 
         //
         // Typically the system removes all the  children before
@@ -556,17 +498,16 @@ Routine Description:
         // still present we will destroy them explicitly, with one exception -
         // we will not delete the PDOs that are in SurpriseRemovePending state.
         //
-
-        ExAcquireFastMutex (&DeviceData->Mutex);
+        ExAcquireFastMutex(&DeviceData->Mutex);
 
         listHead = &DeviceData->ListOfPDOs;
 
-        for(entry = listHead->Flink,nextEntry = entry->Flink;
-            entry != listHead;
-            entry = nextEntry,nextEntry = entry->Flink) {
+        for (entry = listHead->Flink,nextEntry = entry->Flink;
+             entry != listHead;
+             entry = nextEntry,nextEntry = entry->Flink) {
 
-            pdoData = CONTAINING_RECORD (entry, PDO_DEVICE_DATA, Link);
-            RemoveEntryList (&pdoData->Link);
+            pdoData = CONTAINING_RECORD(entry, PDO_DEVICE_DATA, Link);
+            RemoveEntryList(&pdoData->Link);
             if (SurpriseRemovePending == pdoData->DevicePnPState)
             {
                 //
@@ -577,46 +518,45 @@ Routine Description:
                 // ReportedMissing flag to cause the deletion of the PDO.
                 //
                 Bus_KdPrint_Cont(DeviceData, BUS_DBG_PNP_INFO,
-                ("\tFound a surprise removed device: 0x%p\n", pdoData->Self));
-                InitializeListHead (&pdoData->Link);
-                pdoData->ParentFdo  = NULL;
+                                  ("\tFound a surprise removed device: 0x%p\n",
+                                  pdoData->Self));
+                InitializeListHead(&pdoData->Link);
+                pdoData->ParentFdo = NULL;
                 pdoData->ReportedMissing = TRUE;
                 continue;
             }
             DeviceData->NumPDOs--;
-            Bus_DestroyPdo (pdoData->Self, pdoData);
+            Bus_DestroyPdo(pdoData->Self, pdoData);
         }
 
-        ExReleaseFastMutex (&DeviceData->Mutex);
+        ExReleaseFastMutex(&DeviceData->Mutex);
 
         //
         // We need to send the remove down the stack before we detach,
         // but we don't need to wait for the completion of this operation
         // (and to register a completion routine).
         //
-
         Irp->IoStatus.Status = STATUS_SUCCESS;
-        IoSkipCurrentIrpStackLocation (Irp);
-        status = IoCallDriver (DeviceData->NextLowerDriver, Irp);
+        IoSkipCurrentIrpStackLocation(Irp);
+        status = IoCallDriver(DeviceData->NextLowerDriver, Irp);
+
         //
         // Detach from the underlying devices.
         //
-
-        IoDetachDevice (DeviceData->NextLowerDriver);
+        IoDetachDevice(DeviceData->NextLowerDriver);
 
         Bus_KdPrint_Cont(DeviceData, BUS_DBG_PNP_INFO,
-                        ("\tDeleting FDO: 0x%p\n", DeviceObject));
-
-        IoDeleteDevice (DeviceObject);
+                         ("\tDeleting FDO: 0x%p\n", DeviceObject));
+        IoDeleteDevice(DeviceObject);
 
         return status;
 
     case IRP_MN_QUERY_DEVICE_RELATIONS:
 
-        Bus_KdPrint_Cont (DeviceData, BUS_DBG_PNP_TRACE,
-                   ("\tQueryDeviceRelation Type: %s\n",
-                    DbgDeviceRelationString(\
-                    IrpStack->Parameters.QueryDeviceRelations.Type)));
+        Bus_KdPrint_Cont(DeviceData, BUS_DBG_PNP_TRACE,
+                         ("\tQueryDeviceRelation Type: %s\n",
+                          DbgDeviceRelationString(\
+                          IrpStack->Parameters.QueryDeviceRelations.Type)));
 
         if (BusRelations != IrpStack->Parameters.QueryDeviceRelations.Type) {
             //
@@ -635,18 +575,18 @@ Routine Description:
         // to success.  (PDOs complete plug and play irps with the current
         // IoStatus.Status and IoStatus.Information as the default.)
         //
-
-        ExAcquireFastMutex (&DeviceData->Mutex);
+        ExAcquireFastMutex(&DeviceData->Mutex);
 
         oldRelations = (PDEVICE_RELATIONS) Irp->IoStatus.Information;
         if (oldRelations) {
             prevcount = oldRelations->Count;
+
             if (!DeviceData->NumPDOs) {
                 //
                 // There is a device relations struct already present and we have
                 // nothing to add to it, so just call IoSkip and IoCall
                 //
-                ExReleaseFastMutex (&DeviceData->Mutex);
+                ExReleaseFastMutex(&DeviceData->Mutex);
                 break;
             }
         }
@@ -661,7 +601,8 @@ Routine Description:
         for (entry = DeviceData->ListOfPDOs.Flink;
              entry != &DeviceData->ListOfPDOs;
              entry = entry->Flink) {
-            pdoData = CONTAINING_RECORD (entry, PDO_DEVICE_DATA, Link);
+
+            pdoData = CONTAINING_RECORD(entry, PDO_DEVICE_DATA, Link);
             if (pdoData->Present)
                 numPdosPresent++;
         }
@@ -670,21 +611,20 @@ Routine Description:
         // Need to allocate a new relations structure and add our
         // PDOs to it.
         //
-
         length = sizeof(DEVICE_RELATIONS) +
                 ((numPdosPresent + prevcount) * sizeof (PDEVICE_OBJECT)) -1;
 
-        relations = (PDEVICE_RELATIONS) ExAllocatePoolWithTag (PagedPool,
-                                        length, BUSENUM_POOL_TAG);
+        relations = (PDEVICE_RELATIONS) ExAllocatePoolWithTag(PagedPool,
+                                          length, BUSENUM_POOL_TAG);
 
         if (NULL == relations) {
             //
             // Fail the IRP
             //
-            ExReleaseFastMutex (&DeviceData->Mutex);
+            ExReleaseFastMutex(&DeviceData->Mutex);
             Irp->IoStatus.Status = status = STATUS_INSUFFICIENT_RESOURCES;
-            IoCompleteRequest (Irp, IO_NO_INCREMENT);
-            Bus_DecIoCount (DeviceData);
+            IoCompleteRequest(Irp, IO_NO_INCREMENT);
+            Bus_DecIoCount(DeviceData);
             return status;
 
         }
@@ -693,8 +633,8 @@ Routine Description:
         // Copy in the device objects so far
         //
         if (prevcount) {
-            RtlCopyMemory (relations->Objects, oldRelations->Objects,
-                                      prevcount * sizeof (PDEVICE_OBJECT));
+            RtlCopyMemory(relations->Objects, oldRelations->Objects,
+                          prevcount * sizeof (PDEVICE_OBJECT));
         }
 
         relations->Count = prevcount + numPdosPresent;
@@ -705,24 +645,24 @@ Routine Description:
         // The Plug & Play system will dereference the object when it is done
         // with it and free the device relations buffer.
         //
-
         for (entry = DeviceData->ListOfPDOs.Flink;
              entry != &DeviceData->ListOfPDOs;
              entry = entry->Flink) {
 
-            pdoData = CONTAINING_RECORD (entry, PDO_DEVICE_DATA, Link);
+            pdoData = CONTAINING_RECORD(entry, PDO_DEVICE_DATA, Link);
             if (pdoData->Present) {
                 relations->Objects[prevcount] = pdoData->Self;
-                ObReferenceObject (pdoData->Self);
+                ObReferenceObject(pdoData->Self);
                 prevcount++;
-            } else {
+            }
+            else {
                 pdoData->ReportedMissing = TRUE;
             }
         }
 
-        Bus_KdPrint_Cont (DeviceData, BUS_DBG_PNP_TRACE,
-                           ("\t#PDOS present = %d\n\t#PDOs reported = %d\n",
-                             DeviceData->NumPDOs, relations->Count));
+        Bus_KdPrint_Cont(DeviceData, BUS_DBG_PNP_TRACE,
+                         ("\t#PDOS present = %d\n\t#PDOs reported = %d\n",
+                           DeviceData->NumPDOs, relations->Count));
 
         //
         // Replace the relations structure in the IRP with the new
@@ -733,7 +673,7 @@ Routine Description:
         }
         Irp->IoStatus.Information = (ULONG_PTR) relations;
 
-        ExReleaseFastMutex (&DeviceData->Mutex);
+        ExReleaseFastMutex(&DeviceData->Mutex);
 
         //
         // Set up and pass the IRP further down the stack
@@ -747,20 +687,15 @@ Routine Description:
         // In the default case we merely call the next driver.
         // We must not modify Irp->IoStatus.Status or complete the IRP.
         //
-
         break;
     }
 
-    IoSkipCurrentIrpStackLocation (Irp);
-    status = IoCallDriver (DeviceData->NextLowerDriver, Irp);
-    Bus_DecIoCount (DeviceData);
+    IoSkipCurrentIrpStackLocation(Irp);
+    status = IoCallDriver(DeviceData->NextLowerDriver, Irp);
+    Bus_DecIoCount(DeviceData);
     return status;
 }
 
-NTSTATUS
-Bus_StartFdo (
-    __in  PFDO_DEVICE_DATA            FdoData,
-    __in  PIRP   Irp )
 /*++
 
 Routine Description:
@@ -778,28 +713,25 @@ Return Value:
     NT Status is returned.
 
 --*/
-{
+NTSTATUS Bus_StartFdo(__in  PFDO_DEVICE_DATA FdoData, __in  PIRP Irp) {
     NTSTATUS status;
     POWER_STATE powerState;
 
-    PAGED_CODE ();
+    PAGED_CODE();
 
     //
     // Check the function driver source to learn
     // about parsing resource list.
-    //
-
     //
     // Enable device interface. If the return status is
     // STATUS_OBJECT_NAME_EXISTS means we are enabling the interface
     // that was already enabled, which could happen if the device
     // is stopped and restarted for resource rebalancing.
     //
-
     status = IoSetDeviceInterfaceState(&FdoData->InterfaceName, TRUE);
-    if (!NT_SUCCESS (status)) {
-        Bus_KdPrint (FdoData, BUS_DBG_PNP_TRACE,
-                ("IoSetDeviceInterfaceState failed: 0x%x\n", status));
+    if (!NT_SUCCESS(status)) {
+        Bus_KdPrint(FdoData, BUS_DBG_PNP_TRACE,
+                    ("IoSetDeviceInterfaceState failed: 0x%x\n", status));
         return status;
     }
 
@@ -809,10 +741,9 @@ Return Value:
     // to the state it was before you stopped the device and relinquished
     // resources.
     //
-
     FdoData->DevicePowerState = PowerDeviceD0;
     powerState.DeviceState = PowerDeviceD0;
-    PoSetPowerState ( FdoData->Self, DevicePowerState, powerState );
+    PoSetPowerState(FdoData->Self, DevicePowerState, powerState);
 
     SET_NEW_PNP_STATE(FdoData, Started);
 
@@ -820,18 +751,14 @@ Return Value:
     // Register with WMI
     //
     status = Bus_WmiRegistration(FdoData);
-    if (!NT_SUCCESS (status)) {
-        Bus_KdPrint (FdoData, BUS_DBG_SS_ERROR,
-        ("StartFdo: Bus_WmiRegistration failed (%x)\n", status));
+    if (!NT_SUCCESS(status)) {
+        Bus_KdPrint(FdoData, BUS_DBG_SS_ERROR,
+                    ("StartFdo: Bus_WmiRegistration failed (%x)\n", status));
     }
 
     return status;
 }
 
-void
-Bus_RemoveFdo (
-    __in PFDO_DEVICE_DATA FdoData
-    )
 /*++
 Routine Description:
 
@@ -847,40 +774,29 @@ Return Value:
     NT Status is returned.
 
 --*/
-{
-    PAGED_CODE ();
+void Bus_RemoveFdo(__in PFDO_DEVICE_DATA FdoData) {
+    PAGED_CODE();
 
     //
     // Stop all access to the device, fail any outstanding I/O to the device,
     // and free all the resources associated with the device.
     //
-
-    //
     // Disable the device interface and free the buffer
     //
     if (FdoData->InterfaceName.Buffer != NULL) {
+        IoSetDeviceInterfaceState(&FdoData->InterfaceName, FALSE);
 
-        IoSetDeviceInterfaceState (&FdoData->InterfaceName, FALSE);
-
-        ExFreePool (FdoData->InterfaceName.Buffer);
-        RtlZeroMemory (&FdoData->InterfaceName,
-                       sizeof (UNICODE_STRING));
+        ExFreePool(FdoData->InterfaceName.Buffer);
+        RtlZeroMemory(&FdoData->InterfaceName, sizeof (UNICODE_STRING));
     }
 
     //
     // Inform WMI to remove this DeviceObject from its
     // list of providers.
     //
-
     Bus_WmiDeRegistration(FdoData);
-
 }
 
-NTSTATUS
-Bus_SendIrpSynchronously (
-    __in PDEVICE_OBJECT DeviceObject,
-    __in PIRP Irp
-    )
 /*++
 Routine Description:
 
@@ -896,24 +812,16 @@ Return Value:
     NT Status is returned.
 
 --*/
-{
+NTSTATUS Bus_SendIrpSynchronously(__in PDEVICE_OBJECT DeviceObject,
+                                  __in PIRP Irp) {
     KEVENT   event;
     NTSTATUS status;
 
     PAGED_CODE();
 
     KeInitializeEvent(&event, NotificationEvent, FALSE);
-
     IoCopyCurrentIrpStackLocationToNext(Irp);
-
-    IoSetCompletionRoutine(Irp,
-                           Bus_CompletionRoutine,
-                           &event,
-                           TRUE,
-                           TRUE,
-                           TRUE
-                           );
-
+    IoSetCompletionRoutine(Irp, Bus_CompletionRoutine, &event, TRUE, TRUE, TRUE);
     status = IoCallDriver(DeviceObject, Irp);
 
     //
@@ -923,26 +831,14 @@ Return Value:
     // KernelMode wait instead of UserMode to prevent
     // the stack from getting paged out.
     //
-
     if (status == STATUS_PENDING) {
-       KeWaitForSingleObject(&event,
-                             Executive,
-                             KernelMode,
-                             FALSE,
-                             NULL
-                             );
+       KeWaitForSingleObject(&event, Executive, KernelMode, FALSE, NULL);
        status = Irp->IoStatus.Status;
     }
 
     return status;
 }
 
-NTSTATUS
-Bus_CompletionRoutine(
-    __in PDEVICE_OBJECT   DeviceObject,
-    __in PIRP             Irp,
-    __in PVOID            Context
-    )
 /*++
 Routine Description:
     A completion routine for use when calling the lower device objects to
@@ -958,8 +854,9 @@ Return Value:
     NT Status is returned.
 
 --*/
-{
-    UNREFERENCED_PARAMETER (DeviceObject);
+NTSTATUS Bus_CompletionRoutine(__in PDEVICE_OBJECT DeviceObject, __in PIRP Irp,
+                                __in PVOID Context) {
+    UNREFERENCED_PARAMETER(DeviceObject);
 
     //
     // If the lower driver didn't return STATUS_PENDING, we don't need to
@@ -967,9 +864,9 @@ Return Value:
     // This optimization avoids grabbing the dispatcher lock and improves perf.
     //
     if (Irp->PendingReturned == TRUE) {
-
-        KeSetEvent ((PKEVENT) Context, IO_NO_INCREMENT, FALSE);
+        KeSetEvent((PKEVENT) Context, IO_NO_INCREMENT, FALSE);
     }
+
     return STATUS_MORE_PROCESSING_REQUIRED; // Keep this IRP
 }
 
@@ -1003,50 +900,53 @@ void complete_pending_irp(PPDO_DEVICE_DATA pdodata)
     KIRQL oldirql;
     KIRQL oldirql2;
     int count=0;
-	LARGE_INTEGER interval;
+    LARGE_INTEGER interval;
 
-    //FIXME
-    KdPrint(("finish pending irp\n"));
+    // FIXME
+    // We will need to figure out what needs to be fixed...
+    KdPrint(("Finish pending irp\n"));
     KeRaiseIrql(DISPATCH_LEVEL, &oldirql);
+
     do {
-	irp=NULL;
-	le=NULL;
-	KeAcquireSpinLockAtDpcLevel(&pdodata->q_lock);
-	if (!IsListEmpty(&pdodata->ioctl_q))
-		le = RemoveHeadList(&pdodata->ioctl_q);
-	if(le){
-		urb_r = CONTAINING_RECORD(le, struct urb_req, list);
-		/* FIMXE event */
-		irp = urb_r->irp;
-	}
-	if(irp==NULL){
-		KeReleaseSpinLock(&pdodata->q_lock, oldirql);
-		break;
-	}
-	if(count>2){
-		KeReleaseSpinLock(&pdodata->q_lock, oldirql);
-		KdPrint(("sleep 50ms, let pnp manager send irp"));
-		interval.QuadPart=-500000;
-		KeDelayExecutionThread(KernelMode, FALSE, &interval);
-		KeRaiseIrql(DISPATCH_LEVEL, &oldirql);
-	} else {
-		KeReleaseSpinLock(&pdodata->q_lock, DISPATCH_LEVEL);
-	}
-	ExFreeToNPagedLookasideList(&g_lookaside, urb_r);
-	irp->IoStatus.Status = STATUS_DEVICE_NOT_CONNECTED;
-	IoSetCancelRoutine(irp, NULL);
-	KeRaiseIrql(DISPATCH_LEVEL, &oldirql2);
-	IoCompleteRequest (irp, IO_NO_INCREMENT);
-	KeLowerIrql(oldirql2);
-	count++;
-    }while(1);
+      	irp = NULL;
+      	le = NULL;
+      	KeAcquireSpinLockAtDpcLevel(&pdodata->q_lock);
+
+      	if (!IsListEmpty(&pdodata->ioctl_q))
+      		  le = RemoveHeadList(&pdodata->ioctl_q);
+
+      	if (le) {
+        		urb_r = CONTAINING_RECORD(le, struct urb_req, list);
+        		/* FIXME event */
+        		irp = urb_r->irp;
+      	}
+
+      	if (irp == NULL) {
+        		KeReleaseSpinLock(&pdodata->q_lock, oldirql);
+        		break;
+      	}
+
+      	if (count > 2) {
+        		KeReleaseSpinLock(&pdodata->q_lock, oldirql);
+        		KdPrint(("Sleep 50ms, let pnp manager send irp"));
+        		interval.QuadPart=-500000;
+        		KeDelayExecutionThread(KernelMode, FALSE, &interval);
+        		KeRaiseIrql(DISPATCH_LEVEL, &oldirql);
+      	}
+        else {
+      		  KeReleaseSpinLock(&pdodata->q_lock, DISPATCH_LEVEL);
+      	}
+
+      	ExFreeToNPagedLookasideList(&g_lookaside, urb_r);
+      	irp->IoStatus.Status = STATUS_DEVICE_NOT_CONNECTED;
+      	IoSetCancelRoutine(irp, NULL);
+      	KeRaiseIrql(DISPATCH_LEVEL, &oldirql2);
+      	IoCompleteRequest (irp, IO_NO_INCREMENT);
+      	KeLowerIrql(oldirql2);
+      	count++;
+    } while(1);
 }
 
-NTSTATUS
-Bus_DestroyPdo (
-    PDEVICE_OBJECT      Device,
-    __in PPDO_DEVICE_DATA    PdoData
-    )
 /*++
 Routine Description:
     The Plug & Play subsystem has instructed that this PDO should be removed.
@@ -1065,9 +965,8 @@ Routine Description:
     query Device relations IRPS.
 
 --*/
-
-{
-    PAGED_CODE ();
+NTSTATUS Bus_DestroyPdo(PDEVICE_OBJECT Device, __in PPDO_DEVICE_DATA PdoData) {
+    PAGED_CODE();
 
     //
     // BusEnum does not queue any irps at this time so we have nothing to do.
@@ -1085,32 +984,32 @@ Routine Description:
         ExFreePool (PdoData->compatible_ids);
         PdoData->compatible_ids = NULL;
     }
+
     //FIXME
+    // We still have to figure out what needs to be fixed.
     if (PdoData->fo){
-	    PdoData->fo->FsContext = NULL;
-	    PdoData->fo = NULL;
+        PdoData->fo->FsContext = NULL;
+        PdoData->fo = NULL;
     }
+
     Bus_KdPrint_Cont(PdoData, BUS_DBG_PNP_INFO,
-                        ("\tDeleting PDO: 0x%p\n", Device));
-    IoDeleteDevice (Device);
+                    ("\tDeleting PDO: 0x%p\n", Device));
+    IoDeleteDevice(Device);
+
     return STATUS_SUCCESS;
 }
 
-void
-bus_init_pdo (
-    __out PDEVICE_OBJECT      pdo,
-    PFDO_DEVICE_DATA    fdodata
-    )
+void bus_init_pdo(__out PDEVICE_OBJECT pdo, PFDO_DEVICE_DATA fdodata)
 {
     PPDO_DEVICE_DATA pdodata;
     unsigned int pdo_num;
 
-    PAGED_CODE ();
+    PAGED_CODE();
 
     pdodata = (PPDO_DEVICE_DATA)  pdo->DeviceExtension;
 
     Bus_KdPrint(pdodata, BUS_DBG_SS_NOISE,
-                 ("pdo 0x%p, extension 0x%p\n", pdo, pdodata));
+                ("pdo 0x%p, extension 0x%p\n", pdo, pdodata));
 
     //
     // Initialize the rest
@@ -1138,17 +1037,16 @@ bus_init_pdo (
 
     pdo->Flags |= DO_POWER_PAGABLE|DO_DIRECT_IO;
 
-    ExAcquireFastMutex (&fdodata->Mutex);
+    ExAcquireFastMutex(&fdodata->Mutex);
     InsertTailList(&fdodata->ListOfPDOs, &pdodata->Link);
     fdodata->NumPDOs++;
-    ExReleaseFastMutex (&fdodata->Mutex);
+    ExReleaseFastMutex(&fdodata->Mutex);
     // This should be the last step in initialization.
     pdo->Flags &= ~DO_DEVICE_INITIALIZING;
 }
 
-NTSTATUS bus_plugin_dev(ioctl_usbvbus_plugin * plugin, PFDO_DEVICE_DATA  fdodata,
-		PFILE_OBJECT fo)
-{
+NTSTATUS bus_plugin_dev(ioctl_usbvbus_plugin * plugin, PFDO_DEVICE_DATA fdodata,
+		PFILE_OBJECT fo) {
     PDEVICE_OBJECT      pdo;
     PPDO_DEVICE_DATA    pdodata, old_pdodata;
     NTSTATUS            status;
@@ -1156,16 +1054,17 @@ NTSTATUS bus_plugin_dev(ioctl_usbvbus_plugin * plugin, PFDO_DEVICE_DATA  fdodata
     PLIST_ENTRY         entry;
     unsigned long i;
 
-    PAGED_CODE ();
+    PAGED_CODE();
 
-    Bus_KdPrint (fdodata, BUS_DBG_PNP_INFO,
-                  ("Exposing PDO\n"
-                   "======addr:  %d\n"
-                   "======vendor:product: %04x:%04x\n",
-                   plugin->addr,
-		   plugin->vendor, plugin->product));
+    Bus_KdPrint(fdodata, BUS_DBG_PNP_INFO,
+                ("Exposing PDO\n"
+                 "======addr:  %d\n"
+                 "======vendor:product: %04x:%04x\n",
+                 plugin->addr,
+                 plugin->vendor,
+                 plugin->product));
 
-    if(plugin->addr <= 0)
+    if (plugin->addr <= 0)
         return STATUS_INVALID_PARAMETER;
 
     ExAcquireFastMutex (&fdodata->Mutex);
@@ -1176,10 +1075,9 @@ NTSTATUS bus_plugin_dev(ioctl_usbvbus_plugin * plugin, PFDO_DEVICE_DATA  fdodata
 
         pdodata = CONTAINING_RECORD (entry, PDO_DEVICE_DATA, Link);
         if (plugin->addr == pdodata->SerialNo &&
-            pdodata->DevicePnPState != SurpriseRemovePending)
-        {
-	    ExReleaseFastMutex (&fdodata->Mutex);
-	    return STATUS_INVALID_PARAMETER;
+            pdodata->DevicePnPState != SurpriseRemovePending) {
+            ExReleaseFastMutex (&fdodata->Mutex);
+            return STATUS_INVALID_PARAMETER;
         }
     }
 
@@ -1190,7 +1088,7 @@ NTSTATUS bus_plugin_dev(ioctl_usbvbus_plugin * plugin, PFDO_DEVICE_DATA  fdodata
 
 
     Bus_KdPrint(fdodata, BUS_DBG_PNP_NOISE,
-                 ("fdodata->NextLowerDriver = 0x%p\n", fdodata->NextLowerDriver));
+                ("fdodata->NextLowerDriver = 0x%p\n", fdodata->NextLowerDriver));
 
     //
     // PDO must have a name. You should let the system auto generate a
@@ -1213,7 +1111,7 @@ NTSTATUS bus_plugin_dev(ioctl_usbvbus_plugin * plugin, PFDO_DEVICE_DATA  fdodata
                 &SDDL_DEVOBJ_SYS_ALL_ADM_RWX_WORLD_RWX_RES_RWX, // allow normal users to access the devices
                 (LPCGUID)&GUID_SD_BUSENUM_PDO,
                 &pdo);
-    if (!NT_SUCCESS (status)) {
+    if (!NT_SUCCESS(status)) {
         return status;
     }
 
@@ -1223,30 +1121,35 @@ NTSTATUS bus_plugin_dev(ioctl_usbvbus_plugin * plugin, PFDO_DEVICE_DATA  fdodata
 
     len = sizeof(HARDWARE_IDS_TPL);
     pdodata->HardwareIDs =
-            ExAllocatePoolWithTag (NonPagedPool, len, BUSENUM_POOL_TAG);
+            ExAllocatePoolWithTag(NonPagedPool, len, BUSENUM_POOL_TAG);
+
     if (NULL == pdodata->HardwareIDs) {
         IoDeleteDevice(pdo);
         return STATUS_INSUFFICIENT_RESOURCES;
     }
-    RtlStringCchPrintfW(pdodata->HardwareIDs, len/sizeof(wchar_t),
-		HARDWARE_IDS_TPL,
-	        plugin->vendor, plugin->product, plugin->version,
-	        plugin->vendor, plugin->product);
-    for(i=0;i<len/sizeof(wchar_t);i++){
-	    if('Z'==pdodata->HardwareIDs[i])
-		    pdodata->HardwareIDs[i]=0;
+
+    RtlStringCchPrintfW(pdodata->HardwareIDs, len/sizeof(wchar_t), HARDWARE_IDS_TPL,
+                        plugin->vendor, plugin->product, plugin->version,
+                        plugin->vendor, plugin->product);
+
+    for (i = 0; i < len/sizeof(wchar_t); i++) {
+        if('Z' == pdodata->HardwareIDs[i])
+		        pdodata->HardwareIDs[i] = 0;
     }
+
 #define COMPATIBLE_IDS_TPL L"USB\\Class_%02x&SubClass_%02x&Prot_%02xZUSB\\Class_%02x&SubClass_%02xZUSB\\Class_%02xZ"
 #define COMPATIBLE_COMPOSITE_IDS_TPL L"USB\\Class_%02x&SubClass_%02x&Prot_%02xZUSB\\Class_%02x&SubClass_%02xZUSB\\Class_%02xZUSB\\COMPOSITEZ"
-    if(plugin->inum>1)
-	   len = sizeof(COMPATIBLE_COMPOSITE_IDS_TPL);
+
+    if (plugin->inum > 1)
+        len = sizeof(COMPATIBLE_COMPOSITE_IDS_TPL);
     else
-	   len = sizeof(COMPATIBLE_IDS_TPL);
-    pdodata->compatible_ids =
-            ExAllocatePoolWithTag (NonPagedPool, len, BUSENUM_POOL_TAG);
-    
-	if (NULL == pdodata->compatible_ids) {
-		ExFreePool(pdodata->HardwareIDs);
+        len = sizeof(COMPATIBLE_IDS_TPL);
+
+    pdodata->compatible_ids = ExAllocatePoolWithTag(NonPagedPool, len,
+                                                    BUSENUM_POOL_TAG);
+
+    if (NULL == pdodata->compatible_ids) {
+		    ExFreePool(pdodata->HardwareIDs);
         IoDeleteDevice(pdo);
         return STATUS_INSUFFICIENT_RESOURCES;
     }
@@ -1254,27 +1157,28 @@ NTSTATUS bus_plugin_dev(ioctl_usbvbus_plugin * plugin, PFDO_DEVICE_DATA  fdodata
 
     pdodata->compatible_ids_len = len;
     RtlStringCchPrintfW(pdodata->compatible_ids, len/sizeof(wchar_t),
-		(plugin->inum>1)?COMPATIBLE_COMPOSITE_IDS_TPL:COMPATIBLE_IDS_TPL,
-	        plugin->int0_class, plugin->int0_subclass, plugin->int0_protocol,
-		plugin->int0_class, plugin->int0_subclass,
-		plugin->int0_class);
-    for(i=0;i<len/sizeof(wchar_t);i++){
-	    if('Z'==pdodata->compatible_ids[i])
-		    pdodata->compatible_ids[i]=0;
+    		(plugin->inum > 1) ? COMPATIBLE_COMPOSITE_IDS_TPL : COMPATIBLE_IDS_TPL,
+    	  plugin->int0_class, plugin->int0_subclass, plugin->int0_protocol,
+    		plugin->int0_class, plugin->int0_subclass, plugin->int0_class);
+
+    for (i = 0; i < len/sizeof(wchar_t); i++) {
+        if('Z' == pdodata->compatible_ids[i])
+		        pdodata->compatible_ids[i] = 0;
     }
+
     old_pdodata = (PPDO_DEVICE_DATA) InterlockedCompareExchangePointer(&(fo->FsContext), pdodata, 0);
-    if(old_pdodata){
-	    KdPrint(("you can't plugin again"));
-	    ExFreePool(pdodata->HardwareIDs);
-	    ExFreePool(pdodata->compatible_ids);
-	   IoDeleteDevice(pdo);
-           return STATUS_INVALID_PARAMETER;
+    if (old_pdodata) {
+        KdPrint(("You can't plug in again"));
+        ExFreePool(pdodata->HardwareIDs);
+        ExFreePool(pdodata->compatible_ids);
+        IoDeleteDevice(pdo);
+        return STATUS_INVALID_PARAMETER;
     }
     pdodata->SerialNo = plugin->addr;
     pdodata->fo = fo;
     pdodata->devid = plugin->devid;
     pdodata->speed = plugin->speed;
-    bus_init_pdo (pdo, fdodata);
+    bus_init_pdo(pdo, fdodata);
 
     //
     // Device Relation changes if a new pdo is created. So let
@@ -1282,80 +1186,76 @@ NTSTATUS bus_plugin_dev(ioctl_usbvbus_plugin * plugin, PFDO_DEVICE_DATA  fdodata
     // queries and cause the function driver to be loaded.
     //
 
-    IoInvalidateDeviceRelations (fdodata->UnderlyingPDO, BusRelations);
+    IoInvalidateDeviceRelations(fdodata->UnderlyingPDO, BusRelations);
 
     return status;
 }
 
 NTSTATUS bus_get_ports_status(ioctl_usbvbus_get_ports_status * st,
-		PFDO_DEVICE_DATA  fdodata, ULONG *info)
-{
+                              PFDO_DEVICE_DATA  fdodata, ULONG *info) {
     PDEVICE_OBJECT      pdo;
     PPDO_DEVICE_DATA    pdodata;
     NTSTATUS            status;
     PLIST_ENTRY         entry;
 
-    PAGED_CODE ();
+    PAGED_CODE();
 
-    Bus_KdPrint (fdodata, BUS_DBG_PNP_INFO,
-                  ("get ports status\n"));
+    Bus_KdPrint(fdodata, BUS_DBG_PNP_INFO, ("Get ports status\n"));
 
     RtlZeroMemory(st, sizeof(*st));
-    ExAcquireFastMutex (&fdodata->Mutex);
+    ExAcquireFastMutex(&fdodata->Mutex);
 
     for (entry = fdodata->ListOfPDOs.Flink;
          entry != &fdodata->ListOfPDOs;
          entry = entry->Flink) {
 
-        pdodata = CONTAINING_RECORD (entry, PDO_DEVICE_DATA, Link);
-		if (pdodata->SerialNo > 127 || pdodata->SerialNo == 0){
-			KdPrint(("strange error"));
-		}
-		if(st->max_used_port < (int)pdodata->SerialNo)
-			st->max_used_port = (int)pdodata->SerialNo;
-		st->port_status[pdodata->SerialNo]=1;
+        pdodata = CONTAINING_RECORD(entry, PDO_DEVICE_DATA, Link);
+    		if (pdodata->SerialNo > 127 || pdodata->SerialNo == 0) {
+            KdPrint(("Strange error"));
+    		}
+
+    		if (st->max_used_port < (int)pdodata->SerialNo)
+    		    st->max_used_port = (int)pdodata->SerialNo;
+
+    		st->port_status[pdodata->SerialNo] = 1;
     }
-    ExReleaseFastMutex (&fdodata->Mutex);
+    ExReleaseFastMutex(&fdodata->Mutex);
     *info=sizeof(*st);
     return STATUS_SUCCESS;
 }
 
 
-
-NTSTATUS
-bus_unplug_dev (
-    int addr,
-    PFDO_DEVICE_DATA            fdodata
-    )
+NTSTATUS bus_unplug_dev(int addr, PFDO_DEVICE_DATA fdodata)
 {
     PLIST_ENTRY         entry;
     PPDO_DEVICE_DATA    pdodata;
-    int found=0, all;
+    bool found = FALSE, all;
 
-    PAGED_CODE ();
+    PAGED_CODE();
 
-    if(addr<0||addr>127)
-	return STATUS_INVALID_PARAMETER;
+    if (addr < 0 || addr > 127)
+        return STATUS_INVALID_PARAMETER;
 
     all = (0 == addr);
 
-    ExAcquireFastMutex (&fdodata->Mutex);
+    ExAcquireFastMutex(&fdodata->Mutex);
 
     if (all) {
-        Bus_KdPrint (fdodata, BUS_DBG_IOCTL_NOISE,
-                      ("Plugging out all the devices!\n"));
-    } else {
-        Bus_KdPrint (fdodata, BUS_DBG_IOCTL_NOISE,
-                      ("Plugging out %d\n", addr));
+        Bus_KdPrint(fdodata, BUS_DBG_IOCTL_NOISE,
+                    ("Plugging out all the devices!\n"));
+    }
+    else {
+        Bus_KdPrint(fdodata, BUS_DBG_IOCTL_NOISE,
+                    ("Plugging out %d\n", addr));
     }
 
     if (fdodata->NumPDOs == 0) {
         //
         // We got a 2nd plugout...somebody in user space isn't playing nice!!!
         //
-        Bus_KdPrint (fdodata, BUS_DBG_IOCTL_ERROR,
-                      ("BAD BAD BAD...2 removes!!! Send only one!\n"));
-        ExReleaseFastMutex (&fdodata->Mutex);
+        Bus_KdPrint(fdodata, BUS_DBG_IOCTL_ERROR,
+                    ("BAD BAD BAD... 2 removes!!! Send only one!\n"));
+        ExReleaseFastMutex(&fdodata->Mutex);
         return STATUS_NO_SUCH_DEVICE;
     }
 
@@ -1363,58 +1263,53 @@ bus_unplug_dev (
          entry != &fdodata->ListOfPDOs;
          entry = entry->Flink) {
 
-        pdodata = CONTAINING_RECORD (entry, PDO_DEVICE_DATA, Link);
+        pdodata = CONTAINING_RECORD(entry, PDO_DEVICE_DATA, Link);
 
-        Bus_KdPrint (fdodata, BUS_DBG_IOCTL_NOISE,
-                      ("found device %d\n", pdodata->SerialNo));
+        Bus_KdPrint(fdodata, BUS_DBG_IOCTL_NOISE,
+                    ("Found device %d\n", pdodata->SerialNo));
 
         if (all || addr == pdodata->SerialNo) {
-            Bus_KdPrint (fdodata, BUS_DBG_IOCTL_INFO,
-                          ("Plugging out %d\n", pdodata->SerialNo));
+            Bus_KdPrint(fdodata, BUS_DBG_IOCTL_INFO,
+                        ("Plugging out %d\n", pdodata->SerialNo));
             pdodata->Present = FALSE;
-			complete_pending_read_irp(pdodata);
-            found = 1;
+            complete_pending_read_irp(pdodata);
+            found = TRUE;
+
             if (!all) {
                 break;
             }
         }
     }
 
-    ExReleaseFastMutex (&fdodata->Mutex);
+    ExReleaseFastMutex(&fdodata->Mutex);
 
     if (found) {
-        IoInvalidateDeviceRelations (fdodata->UnderlyingPDO, BusRelations);
+        IoInvalidateDeviceRelations(fdodata->UnderlyingPDO, BusRelations);
 
-		ExAcquireFastMutex (&fdodata->Mutex);
+    		ExAcquireFastMutex(&fdodata->Mutex);
 
-		for (entry = fdodata->ListOfPDOs.Flink;
-			 entry != &fdodata->ListOfPDOs;
-			 entry = entry->Flink) {
+    		for (entry = fdodata->ListOfPDOs.Flink;
+    			   entry != &fdodata->ListOfPDOs;
+             entry = entry->Flink) {
 
-			pdodata = CONTAINING_RECORD (entry, PDO_DEVICE_DATA, Link);
+      			pdodata = CONTAINING_RECORD(entry, PDO_DEVICE_DATA, Link);
 
-			if( pdodata->Present ==FALSE){
-				complete_pending_irp(pdodata);
-				SET_NEW_PNP_STATE(pdodata,PNP_DEVICE_REMOVED);
-				IoInvalidateDeviceState(pdodata->Self);
-			}
-		}
-		ExReleaseFastMutex (&fdodata->Mutex);
+      			if (pdodata->Present == FALSE) {
+        				complete_pending_irp(pdodata);
+        				SET_NEW_PNP_STATE(pdodata,PNP_DEVICE_REMOVED);
+        				IoInvalidateDeviceState(pdodata->Self);
+      			}
+  	    }
+	      ExReleaseFastMutex(&fdodata->Mutex);
 
-		Bus_KdPrint (fdodata, BUS_DBG_IOCTL_ERROR,
-                  ("Device %d plug out finished\n", addr));
-		return  STATUS_SUCCESS;
+    		Bus_KdPrint(fdodata, BUS_DBG_IOCTL_ERROR,
+                    ("Device %d plug out finished\n", addr));
+        return  STATUS_SUCCESS;
     }
-
 
     return STATUS_INVALID_PARAMETER;
 }
 
-NTSTATUS
-Bus_EjectDevice (
-    PBUSENUM_EJECT_HARDWARE     Eject,
-    PFDO_DEVICE_DATA            FdoData
-    )
 /*++
 Routine Description:
     The user application has told us to eject the device from the bus.
@@ -1432,32 +1327,32 @@ Returns:
     STATUS_INVALID_PARAMETER if the removal was unsuccessful
 
 --*/
-{
+NTSTATUS Bus_EjectDevice(PBUSENUM_EJECT_HARDWARE Eject, PFDO_DEVICE_DATA FdoData) {
     PLIST_ENTRY         entry;
     PPDO_DEVICE_DATA    pdoData;
     BOOLEAN             found = FALSE, ejectAll;
 
-    PAGED_CODE ();
+    PAGED_CODE();
 
     ejectAll = (0 == Eject->SerialNo);
 
-    ExAcquireFastMutex (&FdoData->Mutex);
+    ExAcquireFastMutex(&FdoData->Mutex);
 
     if (ejectAll) {
-        Bus_KdPrint (FdoData, BUS_DBG_IOCTL_NOISE,
-                      ("Ejecting all the pdos!\n"));
+        Bus_KdPrint(FdoData, BUS_DBG_IOCTL_NOISE,
+                    ("Ejecting all the pdos!\n"));
     } else {
-        Bus_KdPrint (FdoData, BUS_DBG_IOCTL_NOISE,
-                      ("Ejecting %d\n", Eject->SerialNo));
+        Bus_KdPrint(FdoData, BUS_DBG_IOCTL_NOISE,
+                    ("Ejecting %d\n", Eject->SerialNo));
     }
 
     if (FdoData->NumPDOs == 0) {
         //
         // Somebody in user space isn't playing nice!!!
         //
-        Bus_KdPrint (FdoData, BUS_DBG_IOCTL_ERROR,
-                      ("No devices to eject!\n"));
-        ExReleaseFastMutex (&FdoData->Mutex);
+        Bus_KdPrint(FdoData, BUS_DBG_IOCTL_ERROR,
+                    ("No devices to eject!\n"));
+        ExReleaseFastMutex(&FdoData->Mutex);
         return STATUS_NO_SUCH_DEVICE;
     }
 
@@ -1468,14 +1363,14 @@ Returns:
          entry != &FdoData->ListOfPDOs;
          entry = entry->Flink) {
 
-        pdoData = CONTAINING_RECORD (entry, PDO_DEVICE_DATA, Link);
+        pdoData = CONTAINING_RECORD(entry, PDO_DEVICE_DATA, Link);
 
-        Bus_KdPrint (FdoData, BUS_DBG_IOCTL_NOISE,
-                      ("found device %d\n", pdoData->SerialNo));
+        Bus_KdPrint(FdoData, BUS_DBG_IOCTL_NOISE,
+                    ("found device %d\n", pdoData->SerialNo));
 
         if (ejectAll || Eject->SerialNo == pdoData->SerialNo) {
-            Bus_KdPrint (FdoData, BUS_DBG_IOCTL_INFO,
-                          ("Ejected %d\n", pdoData->SerialNo));
+            Bus_KdPrint(FdoData, BUS_DBG_IOCTL_INFO,
+                        ("Ejected %d\n", pdoData->SerialNo));
             found = TRUE;
             IoRequestDeviceEject(pdoData->Self);
             if (!ejectAll) {
@@ -1483,25 +1378,21 @@ Returns:
             }
         }
     }
-    ExReleaseFastMutex (&FdoData->Mutex);
+    ExReleaseFastMutex(&FdoData->Mutex);
 
     if (found) {
         return STATUS_SUCCESS;
     }
 
-    Bus_KdPrint (FdoData, BUS_DBG_IOCTL_ERROR,
-                  ("Device %d is not present\n", Eject->SerialNo));
+    Bus_KdPrint(FdoData, BUS_DBG_IOCTL_ERROR,
+                ("Device %d is not present\n", Eject->SerialNo));
 
     return STATUS_INVALID_PARAMETER;
 }
 
 #if DBG
 
-PCHAR
-PnPMinorFunctionString (
-    UCHAR MinorFunction
-)
-{
+PCHAR PnPMinorFunctionString (UCHAR MinorFunction) {
     switch (MinorFunction)
     {
         case IRP_MN_START_DEVICE:
@@ -1557,11 +1448,7 @@ PnPMinorFunctionString (
     }
 }
 
-PCHAR
-DbgDeviceRelationString(
-    __in DEVICE_RELATION_TYPE Type
-    )
-{
+PCHAR DbgDeviceRelationString( __in DEVICE_RELATION_TYPE Type ) {
     switch (Type)
     {
         case BusRelations:
@@ -1579,11 +1466,7 @@ DbgDeviceRelationString(
     }
 }
 
-PCHAR
-DbgDeviceIDString(
-    BUS_QUERY_ID_TYPE Type
-    )
-{
+PCHAR DbgDeviceIDString( BUS_QUERY_ID_TYPE Type ) {
     switch (Type)
     {
         case BusQueryDeviceID:
@@ -1604,5 +1487,3 @@ DbgDeviceIDString(
 }
 
 #endif
-
-
