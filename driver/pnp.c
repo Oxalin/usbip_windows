@@ -874,22 +874,24 @@ extern NPAGED_LOOKASIDE_LIST g_lookaside;
 
 void complete_pending_read_irp(PPDO_DEVICE_DATA pdodata)
 {
-	KIRQL oldirql;
-	KIRQL oldirql2;
-	PIRP irp;
+  KIRQL oldirql;
+  PIRP irp;
 
-	KeAcquireSpinLock(&pdodata->q_lock, &oldirql);
-	irp=pdodata->pending_read_irp;
-	pdodata->pending_read_irp=NULL;
-	KeReleaseSpinLock(&pdodata->q_lock, oldirql);
-	if(NULL==irp)
-		return;
-	irp->IoStatus.Status = STATUS_DEVICE_NOT_CONNECTED;
-	IoSetCancelRoutine(irp, NULL);
-	KeRaiseIrql(DISPATCH_LEVEL, &oldirql2);
-	IoCompleteRequest (irp, IO_NO_INCREMENT);
-	KeLowerIrql(oldirql2);
-	return;
+  KeAcquireSpinLock(&pdodata->q_lock, &oldirql);
+  irp = pdodata->pending_read_irp;
+  pdodata->pending_read_irp = NULL;
+  KeReleaseSpinLock(&pdodata->q_lock, oldirql);
+
+  if (NULL == irp)
+      return;
+
+  irp->IoStatus.Status = STATUS_DEVICE_NOT_CONNECTED;
+  IoSetCancelRoutine(irp, NULL);
+  KeRaiseIrql(DISPATCH_LEVEL, &oldirql);
+  IoCompleteRequest(irp, IO_NO_INCREMENT);
+  KeLowerIrql(oldirql);
+
+  return;
 }
 
 void complete_pending_irp(PPDO_DEVICE_DATA pdodata)
