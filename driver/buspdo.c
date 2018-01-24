@@ -17,26 +17,20 @@
 
 #endif
 
-NTSTATUS
-Bus_PDO_PnP (
-    __in PDEVICE_OBJECT       DeviceObject,
-    __in PIRP                 Irp,
-    __in PIO_STACK_LOCATION   IrpStack,
-    __in PPDO_DEVICE_DATA     DeviceData
-    )
 /*++
 Routine Description:
     Handle requests from the Plug & Play system for the devices on the BUS
 --*/
-{
-    NTSTATUS                status;
+NTSTATUS Bus_PDO_PnP (__in PDEVICE_OBJECT DeviceObject, __in PIRP Irp,
+                      __in PIO_STACK_LOCATION IrpStack,
+                      __in PPDO_DEVICE_DATA DeviceData) {
+    NTSTATUS status;
 
-    PAGED_CODE ();
-
+    PAGED_CODE();
 
     //
     // NB: Because we are a bus enumerator, we have no one to whom we could
-    // defer these irps.  Therefore we do not pass them down but merely
+    // defer these irps. Therefore we do not pass them down but merely
     // return them.
     //
 
@@ -51,13 +45,15 @@ Routine Description:
         //
         DeviceData->DevicePowerState = PowerDeviceD0;
         SET_NEW_PNP_STATE(DeviceData, Started);
-	status = IoRegisterDeviceInterface (
-                DeviceObject,
-                &GUID_DEVINTERFACE_USB_DEVICE,
-                NULL,
-                &DeviceData->usb_dev_interface);
-	if(status==STATUS_SUCCESS)
-		IoSetDeviceInterfaceState(&DeviceData->usb_dev_interface, TRUE);
+        status = IoRegisterDeviceInterface (
+                      DeviceObject,
+                      &GUID_DEVINTERFACE_USB_DEVICE,
+                      NULL,
+                      &DeviceData->usb_dev_interface);
+
+        if(status == STATUS_SUCCESS)
+            IoSetDeviceInterfaceState(&DeviceData->usb_dev_interface, TRUE);
+
         break;
 
     case IRP_MN_STOP_DEVICE:
@@ -67,12 +63,11 @@ Routine Description:
         // we acquired for the device.
         //
 
-
         SET_NEW_PNP_STATE(DeviceData, Stopped);
         IoSetDeviceInterfaceState(&DeviceData->usb_dev_interface, FALSE);
         status = STATUS_SUCCESS;
-        break;
 
+        break;
 
     case IRP_MN_QUERY_STOP_DEVICE:
 
@@ -84,6 +79,7 @@ Routine Description:
 
         SET_NEW_PNP_STATE(DeviceData, StopPending);
         status = STATUS_SUCCESS;
+
         break;
 
     case IRP_MN_CANCEL_STOP_DEVICE:
@@ -110,6 +106,7 @@ Routine Description:
             RESTORE_PREVIOUS_PNP_STATE(DeviceData);
         }
         status = STATUS_SUCCESS;// We must not fail this IRP.
+
         break;
 
     case IRP_MN_QUERY_REMOVE_DEVICE:
@@ -125,11 +122,12 @@ Routine Description:
             // We must fail remove.
             //
             status = STATUS_UNSUCCESSFUL;
-            break;
+        }
+        else {
+            SET_NEW_PNP_STATE(DeviceData, RemovePending);
+            status = STATUS_SUCCESS;
         }
 
-        SET_NEW_PNP_STATE(DeviceData, RemovePending);
-        status = STATUS_SUCCESS;
         break;
 
     case IRP_MN_CANCEL_REMOVE_DEVICE:
@@ -153,6 +151,7 @@ Routine Description:
             RESTORE_PREVIOUS_PNP_STATE(DeviceData);
         }
         status = STATUS_SUCCESS; // We must not fail this IRP.
+
         break;
 
     case IRP_MN_SURPRISE_REMOVAL:
@@ -165,6 +164,7 @@ Routine Description:
 
         SET_NEW_PNP_STATE(DeviceData, SurpriseRemovePending);
         status = STATUS_SUCCESS;
+
         break;
 
     case IRP_MN_REMOVE_DEVICE:
@@ -201,8 +201,8 @@ Routine Description:
             // Free up resources associated with PDO and delete it.
             //
             status = Bus_DestroyPdo(DeviceObject, DeviceData);
-            break;
 
+            break;
         }
         if (DeviceData->Present) {
             //
@@ -214,11 +214,13 @@ Routine Description:
 
             SET_NEW_PNP_STATE(DeviceData, NotStarted);
             status = STATUS_SUCCESS;
-        } else {
-           //ASSERT(DeviceData->Present);
-	    KdPrint(("Error! why we are not present\n"));
+        }
+        else {
+            //ASSERT(DeviceData->Present);
+            KdPrint(("Error! why we are not present\n"));
             status = STATUS_SUCCESS;
         }
+
         break;
 
     case IRP_MN_QUERY_CAPABILITIES:
@@ -238,7 +240,7 @@ Routine Description:
 
         Bus_KdPrint_Cont (DeviceData, BUS_DBG_PNP_TRACE,
                 ("\tQueryId Type: %d %s\n",
-		 IrpStack->Parameters.QueryId.IdType,
+                IrpStack->Parameters.QueryId.IdType,
                 DbgDeviceIDString(IrpStack->Parameters.QueryId.IdType)));
 
         status = Bus_PDO_QueryDeviceId(DeviceData, Irp);
@@ -291,6 +293,7 @@ Routine Description:
         //
 
         status = STATUS_UNSUCCESSFUL;
+
         break;
 
     case IRP_MN_EJECT:
@@ -303,8 +306,8 @@ Routine Description:
         // completing the IRP.
         //
         DeviceData->Present = FALSE;
-
         status = STATUS_SUCCESS;
+
         break;
 
     case IRP_MN_QUERY_INTERFACE:
@@ -378,7 +381,7 @@ Routine Description:
     default:
 
         //
-        //Bus_KdPrint_Cont (DeviceData, BUS_DBG_PNP_TRACE,("\t Not handled\n"));
+        // Bus_KdPrint_Cont (DeviceData, BUS_DBG_PNP_TRACE,("\t Not handled\n"));
         // For PnP requests to the PDO that we do not understand we should
         // return the IRP WITHOUT setting the status or information fields.
         // These fields may have already been set by a filter (eg acpi).
