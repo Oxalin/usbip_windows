@@ -1429,8 +1429,8 @@ PCHAR PnPMinorFunctionString (UCHAR MinorFunction) {
             return "IRP_MN_READ_CONFIG";
         case IRP_MN_WRITE_CONFIG:
             return "IRP_MN_WRITE_CONFIG";
-        case IRP_MN_EJECT:
-            return "IRP_MN_EJECT";
+        case IRP_MN_DEVICE_ENUMERATED:
+            return "IRP_MN_DEVICE_ENUMERATED";
         case IRP_MN_SET_LOCK:
             return "IRP_MN_SET_LOCK";
         case IRP_MN_QUERY_ID:
@@ -1445,6 +1445,8 @@ PCHAR PnPMinorFunctionString (UCHAR MinorFunction) {
             return "IRP_MN_SURPRISE_REMOVAL";
         case IRP_MN_QUERY_LEGACY_BUS_INFORMATION:
             return "IRP_MN_QUERY_LEGACY_BUS_INFORMATION";
+        case IRP_MN_EJECT:
+            return "IRP_MN_EJECT";
         default:
             return "Unknown PNP IRP";
     }

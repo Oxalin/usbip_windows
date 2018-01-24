@@ -315,6 +315,21 @@ Routine Description:
         // devices (child PDOs).
         //
         status = Bus_PDO_QueryInterface(DeviceData, Irp);
+
+        break;
+
+    case IRP_MN_DEVICE_ENUMERATED:
+        //
+        // This request notifies bus drivers that a device object exists and
+        // that it has been fully enumerated by the plug and play manager.
+        //
+        // Fix bug reported here (daniel danzberger - 2013-02-18):
+        // https://sourceforge.net/p/usbip/discussion/418507/thread/af21439c/
+        // "Hang on initialising some usb-storage devices, because of ignored
+        // IRP_MN_DEVICE_ENUMERATED"
+        //
+        status = STATUS_SUCCESS;
+
         break;
 
     case IRP_MN_FILTER_RESOURCE_REQUIREMENTS:
