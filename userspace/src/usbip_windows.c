@@ -700,7 +700,7 @@ void usbip_vbus_forward(SOCKET sockfd, HANDLE devfd)
 			break;
 		}
 	} while(err==0&&!signalflag);
-	
+
 	info("\n");
 	if (signalflag)
 	{
@@ -732,9 +732,9 @@ static int import_device(int sockfd, struct usb_device *udev,
 		return -1;
 	}
 
-	dbg("call from attch here\n");
+	dbg("call for attach here\n");
 	ret = usbip_vbus_attach_device(fd, port, udev, uinf0);
-	dbg("return from attch here\n");
+	dbg("return from attach here\n");
 
 	if (ret < 0) {
 		err("import device");
@@ -744,6 +744,7 @@ static int import_device(int sockfd, struct usb_device *udev,
 	dbg("devfd:%p\n",devfd);
 	*devfd=fd;
 
+	// On the linux side, we close the handle. Should we?
 	return port;
 }
 
@@ -912,7 +913,7 @@ int attach_device(char * host, char * busid)
 	}
 	info("new usb device attached to usbvbus port %d\n", rhport);
 	usbip_vbus_forward(sockfd, devfd);
-	
+
 	dbg("detaching device");
 	usbip_vbus_detach_device(devfd,rhport);
 
