@@ -1,0 +1,12 @@
+About the documentation hereby included
+
+---
+
+usb/usbip_protocol.txt:
+The latest version of this document can be retrieved from the Linux kernel
+source code under Documentation/usb/usbip_protocol.txt
+
+The current document should be updated if any change was to be made to the
+original.
+
+---
