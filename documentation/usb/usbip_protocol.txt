@@ -2,7 +2,7 @@ PRELIMINARY DRAFT, MAY CONTAIN MISTAKES!
 28 Jun 2011
 
 The USB/IP protocol follows a server/client architecture. The server exports the
-USB devices and the clients imports them. The device driver for the exported
+USB devices and the clients imports them. The device driver for the imported
 USB device runs on the client machine.
 
 The client may ask for the list of the exported USB devices. To get the list the
@@ -153,7 +153,7 @@ OP_REP_DEVLIST: Reply with the list of exported USB devices.
 -----------+--------+------------+---------------------------------------------------
  0x144     |        | m_0        | From now on each interface is described, all
            |        |            |   together bNumInterfaces times, with the
-           |        |            |   the following 4 fields:
+           |        |            |   following 4 fields:
 -----------+--------+------------+---------------------------------------------------
            | 1      |            | bInterfaceClass
 -----------+--------+------------+---------------------------------------------------
@@ -164,7 +164,7 @@ OP_REP_DEVLIST: Reply with the list of exported USB devices.
  0x147     | 1      |            | padding byte for alignment, shall be set to zero
 -----------+--------+------------+---------------------------------------------------
  0xC +     |        |            | The second exported USB device starts at i=1
- i*0x138 + |        |            | with the busid field.
+ i*0x138 + |        |            | with the path field.
  m_(i-1)*4 |        |            |
 
 OP_REQ_IMPORT: Request to import (attach) a remote USB device.
