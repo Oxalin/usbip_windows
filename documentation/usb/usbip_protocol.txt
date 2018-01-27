@@ -351,7 +351,7 @@ USBIP_RET_UNLINK: Reply for URB unlink
  0x10      | 4      |            | ep: endpoint number
 -----------+--------+------------+---------------------------------------------------
  0x14      | 4      |            | status: This is the value contained in the
-           |        |            |   urb->status in the URB completition handler.
+           |        |            |   urb->status in the URB completion handler.
            |        |            |   FIXME: a better explanation needed.
 -----------+--------+------------+---------------------------------------------------
  0x30      | n      |            | URB data bytes. For ISO transfers the padding
