@@ -105,13 +105,13 @@ NTSTATUS Bus_AddDevice(__in PDRIVER_OBJECT DriverObject,
 
     //
     // Initialize the stop event to Signaled:
-    // there are no Irps that prevent the device from being
+    // there are no IRPs that prevent the device from being
     // stopped. This event will be set when the OutstandingIO
     // will become 0.
     //
     KeInitializeEvent(&deviceData->StopEvent, SynchronizationEvent, TRUE);
 
-    deviceObject->Flags |= DO_POWER_PAGABLE|DO_BUFFERED_IO;
+    deviceObject->Flags |= DO_POWER_PAGABLE | DO_BUFFERED_IO;
 
     //
     // Tell the Plug & Play system that this device will need a
@@ -217,7 +217,7 @@ End:
 
 /*++
 Routine Description:
-    Handles PnP Irps sent to both FDO and child PDOs.
+    Handles PnP IRPs sent to both FDO and child PDOs.
 Arguments:
     DeviceObject - Pointer to deviceobject
     Irp          - Pointer to a PnP Irp.
@@ -493,7 +493,7 @@ NTSTATUS Bus_FDO_PnP(__in PDEVICE_OBJECT DeviceObject, __in PIRP Irp,
                               FALSE, NULL);
 
         //
-        // Typically the system removes all the  children before
+        // Typically the system removes all the children before
         // removing the parent FDO. If for any reason child Pdos are
         // still present we will destroy them explicitly, with one exception -
         // we will not delete the PDOs that are in SurpriseRemovePending state.
@@ -508,7 +508,7 @@ NTSTATUS Bus_FDO_PnP(__in PDEVICE_OBJECT DeviceObject, __in PIRP Irp,
 
             pdoData = CONTAINING_RECORD(entry, PDO_DEVICE_DATA, Link);
             RemoveEntryList(&pdoData->Link);
-            if (SurpriseRemovePending == pdoData->DevicePnPState)
+            if (pdoData->DevicePnPState == SurpriseRemovePending)
             {
                 //
                 // We will reinitialize the list head so that we
@@ -558,7 +558,7 @@ NTSTATUS Bus_FDO_PnP(__in PDEVICE_OBJECT DeviceObject, __in PIRP Irp,
                           DbgDeviceRelationString(\
                           IrpStack->Parameters.QueryDeviceRelations.Type)));
 
-        if (BusRelations != IrpStack->Parameters.QueryDeviceRelations.Type) {
+        if (IrpStack->Parameters.QueryDeviceRelations.Type != BusRelations) {
             //
             // We don't support any other Device Relations
             //
@@ -572,7 +572,7 @@ NTSTATUS Bus_FDO_PnP(__in PDEVICE_OBJECT DeviceObject, __in PIRP Irp,
         // so, be sure to propagate the relations from the upper drivers.
         //
         // No Completion routine is needed so long as the status is preset
-        // to success.  (PDOs complete plug and play irps with the current
+        // to success.  (PDOs complete plug and play IRPs with the current
         // IoStatus.Status and IoStatus.Information as the default.)
         //
         ExAcquireFastMutex(&DeviceData->Mutex);
@@ -901,11 +901,12 @@ void complete_pending_irp(PPDO_DEVICE_DATA pdodata)
     PLIST_ENTRY le;
     KIRQL oldirql;
     KIRQL oldirql2;
-    int count=0;
+    int count = 0;
     LARGE_INTEGER interval;
 
     // FIXME
     // We will need to figure out what needs to be fixed...
+    // !!! There is at least something wrong with the IRQL management logic.
     KdPrint(("Finish pending irp\n"));
     KeRaiseIrql(DISPATCH_LEVEL, &oldirql);
 
@@ -941,7 +942,7 @@ void complete_pending_irp(PPDO_DEVICE_DATA pdodata)
 
       	ExFreeToNPagedLookasideList(&g_lookaside, urb_r);
       	irp->IoStatus.Status = STATUS_DEVICE_NOT_CONNECTED;
-      	IoSetCancelRoutine(irp, NULL);
+      	IoSetCancelRoutine(irp, NULL); // Must be run at Irql = DISPATCH_LEVEL with spinlock. Do we need it?
       	KeRaiseIrql(DISPATCH_LEVEL, &oldirql2);
         IoCompleteRequest(irp, IO_NO_INCREMENT);
       	KeLowerIrql(oldirql2);
@@ -964,14 +965,14 @@ Routine Description:
     Note that if the device is still connected to the bus (IE in this case
     the enum application has not yet told us that the USBIP device has disappeared)
     then the PDO must remain around, and must be returned during any
-    query Device relations IRPS.
+    query Device relations IRPs.
 
 --*/
 NTSTATUS Bus_DestroyPdo(PDEVICE_OBJECT Device, __in PPDO_DEVICE_DATA PdoData) {
     PAGED_CODE();
 
     //
-    // BusEnum does not queue any irps at this time so we have nothing to do.
+    // BusEnum does not queue any IRPs at this time so we have nothing to do.
     //
     //
     // Free any resources.
