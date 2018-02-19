@@ -1,5 +1,4 @@
 /*
- * $Id: usbip_linux.c 173 2011-03-22 21:59:17Z maxvz $
  *
  * Copyright (C) 2005-2007 Takahiro Hirofuchi
  */
