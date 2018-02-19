@@ -79,7 +79,7 @@
       <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">true</ExcludedFromBuild>
       <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">true</ExcludedFromBuild>
     </ClCompile>
-    <ClCompile Include="usbip_windows.c" />
+    <ClCompile Include="windows\usbip_windows.c" />
     <ClCompile Include="windows\getopt.c" />
     <ClCompile Include="windows\getopt_long.c" />
   </ItemGroup>

@@ -3,9 +3,9 @@
  * Copyright (C) 2005-2007 Takahiro Hirofuchi
  */
 
-#include "usbip.h"
-#include "usbip_network.h"
-#include "usbip_osspecific.h"
+#include "../usbip.h"
+#include "../usbip_network.h"
+#include "../usbip_osspecific.h"
 
 #include <windows.h>
 #include <setupapi.h>
@@ -21,8 +21,8 @@ int attach_devices_all(char *host)
 #ifdef __GNUC__
 #define INITGUID
 #endif
-#include "usbip.h"
-#include "windows/usbip_windows_kernel_api.h"
+#include "../usbip.h"
+#include "usbip_windows_kernel_api.h"
 
 #define BIG_SIZE 1000000
 static char *dev_read_buf;
