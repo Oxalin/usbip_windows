@@ -235,33 +235,32 @@ int usbip_vbus_detach_device(HANDLE fd, int port)
 }
 
 int usbip_vbus_attach_device(HANDLE fd, int port, struct usb_device *udev,
-		struct usb_interface *uinf0)
-{
-	int ret;
-	ioctl_usbvbus_plugin  plugin;
-	unsigned long unused;
+	struct usb_interface *uinf0) {
+		int ret;
+		ioctl_usbvbus_plugin  plugin;
+		unsigned long unused;
 
-	plugin.devid  = ((udev->busnum << 16)|udev->devnum);
-	plugin.vendor = udev->idVendor;
-	plugin.product = udev->idProduct;
-	plugin.version = udev->bcdDevice;
-	plugin.speed = udev->speed;
-	plugin.inum = udev->bNumInterfaces;
-	plugin.int0_class = uinf0->bInterfaceClass;
-	plugin.int0_subclass = uinf0->bInterfaceSubClass;
-	plugin.int0_protocol = uinf0->bInterfaceProtocol;
-	plugin.addr = port;
+		plugin.devid  = ((udev->busnum << 16)|udev->devnum);
+		plugin.vendor = udev->idVendor;
+		plugin.product = udev->idProduct;
+		plugin.version = udev->bcdDevice;
+		plugin.speed = udev->speed;
+		plugin.inum = udev->bNumInterfaces;
+		plugin.int0_class = uinf0->bInterfaceClass;
+		plugin.int0_subclass = uinf0->bInterfaceSubClass;
+		plugin.int0_protocol = uinf0->bInterfaceProtocol;
+		plugin.addr = port;
 
-	ret = DeviceIoControl(fd, IOCTL_USBVBUS_PLUGIN_HARDWARE,
-				&plugin, sizeof(plugin), NULL, 0, &unused, NULL);
-	if(ret)
-		return 0;
-	return -1;
+		ret = DeviceIoControl(fd, IOCTL_USBVBUS_PLUGIN_HARDWARE,
+													&plugin, sizeof(plugin), NULL, 0, &unused, NULL);
+		if (ret)
+				return 0;
+
+		return -1;
 }
 
 #ifdef DEBUG
-static void usbip_dump_header(struct usbip_header *pdu)
-{
+static void usbip_dump_header(struct usbip_header *pdu) {
 	dbg_file("BASE: cmd %u seq %u devid %u dir %u ep %u\n",
 			pdu->base.command,
 			pdu->base.seqnum,
@@ -884,89 +883,100 @@ static int query_interface0(SOCKET sockfd, char * busid, struct usb_interface * 
 	return -1;
 }
 
-int attach_device(char * host, char * busid)
-{
-	SOCKET sockfd;
-	int rhport;
-	HANDLE devfd=INVALID_HANDLE_VALUE;
-	struct usb_interface uinf;
+int attach_device(char * host, char * busid) {
+		SOCKET sockfd;
+		int rhport;
+		HANDLE devfd = INVALID_HANDLE_VALUE;
+		struct usb_interface uinf;
 
-	sockfd = tcp_connect(host, USBIP_PORT_STRING);
-	if (INVALID_SOCKET == sockfd) {
-		err("tcp connect");
-		return 0;
-	}
-	if(query_interface0(sockfd, busid, &uinf)){
-		err("cannot find device");
-		return 0;
-	}
-	closesocket(sockfd);
-	sockfd = tcp_connect(host, USBIP_PORT_STRING);
-	if (INVALID_SOCKET == sockfd) {
-		err("tcp connect");
-		return 0;
-	}
-	rhport = query_import_device(sockfd, busid, &uinf, &devfd);
-	if (rhport < 0) {
-		err("query");
-		return 0;
-	}
-	info("new usb device attached to usbvbus port %d\n", rhport);
-	usbip_vbus_forward(sockfd, devfd);
+		sockfd = tcp_connect(host, USBIP_PORT_STRING);
+		if (INVALID_SOCKET == sockfd) {
+				err("tcp connect");
+				return 0;
+		}
 
-	dbg("detaching device");
-	usbip_vbus_detach_device(devfd,rhport);
+		if (query_interface0(sockfd, busid, &uinf)) {
+				err("cannot find device");
+				return 0;
+		}
 
-	dbg("closing connection to device");
-	CloseHandle(devfd);
+ 		// FIXME: is it normal that we are closing the socket and reopening
+		// right after. Is it needed? Commenting out.
+		//
+		// closesocket(sockfd);
+		// sockfd = tcp_connect(host, USBIP_PORT_STRING);
+		// if (INVALID_SOCKET == sockfd) {
+		// 		err("tcp connect");
+		// 		return 0;
+		// }
 
-	dbg("closing connection to peer");
-	closesocket(sockfd);
+		rhport = query_import_device(sockfd, busid, &uinf, &devfd);
+		if (rhport < 0) {
+				err("query");
+				return 0;
+		}
 
-	dbg("done");
-	return 1;
+		info("new usb device attached to usbvbus port %d\n", rhport);
+		usbip_vbus_forward(sockfd, devfd);
+
+		dbg("detaching device");
+		usbip_vbus_detach_device(devfd,rhport);
+
+		dbg("closing connection to device");
+		CloseHandle(devfd);
+
+		dbg("closing connection to peer");
+		closesocket(sockfd);
+
+		dbg("done");
+
+		return 1;
 }
 
-int detach_port(char *port)
-{
-	signed char addr=atoi(port);
-	HANDLE fd;
-	int ret;
+int detach_port(char *port) {
+		signed char addr=atoi(port);
+		HANDLE fd;
+		int ret;
 
-	fd = usbip_vbus_open();
-	if (INVALID_HANDLE_VALUE == fd) {
-		err("open vbus driver");
-		return -1;
-	}
-	ret = usbip_vbus_detach_device(fd, addr);
-	CloseHandle(fd);
-	return ret;
+		fd = usbip_vbus_open();
+		if (INVALID_HANDLE_VALUE == fd) {
+				err("open vbus driver");
+				return -1;
+		}
+
+		ret = usbip_vbus_detach_device(fd, addr);
+		CloseHandle(fd);
+
+		return ret;
 }
 
-int show_port_status(void)
-{
-	HANDLE fd;
-	int i;
-	char buf[128];
+int show_port_status(void) {
+		HANDLE fd;
+		int i;
+		char buf[128];
 
-	fd = usbip_vbus_open();
-	if (INVALID_HANDLE_VALUE == fd) {
-		err("open vbus driver");
-		return -1;
-	}
-	if(usbip_vbus_get_ports_status(fd, buf, sizeof(buf))){
-		err("get port status");
-		return -1;
-	}
-	info("max used port:%d\n", buf[0]);
-	for(i=1; i<=buf[0]; i++){
-		if(buf[i])
-			info("port %d: used\n", i);
-		else
-			info("port %d: idle\n", i);
-	}
-	CloseHandle(fd);
-	return 0;
+		fd = usbip_vbus_open();
+		if (INVALID_HANDLE_VALUE == fd) {
+				err("open vbus driver");
+				return -1;
+		}
+
+		if (usbip_vbus_get_ports_status(fd, buf, sizeof(buf))) {
+				err("get port status");
+				return -1;
+		}
+
+		info("max used port:%d\n", buf[0]);
+
+		for(i = 1; i <= buf[0]; i++) {
+				if (buf[i])
+						info("port %d: used\n", i);
+				else
+						info("port %d: idle\n", i);
+		}
+
+		CloseHandle(fd);
+		return 0;
 }
 
 int init_socket()
@@ -985,7 +995,8 @@ int init_socket()
         WSACleanup();
         return -1;
     }
-	return 0;
+
+		return 0;
 }
 
 int cleanup_socket()
