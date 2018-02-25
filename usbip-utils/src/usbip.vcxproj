@@ -80,6 +80,11 @@
       <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">true</ExcludedFromBuild>
     </ClCompile>
     <ClCompile Include="windows\usbip_windows.c" />
+    <ClCompile Include="windows\usbip_attach.c" />
+    <ClCompile Include="windows\usbip_bind.c" />
+    <ClCompile Include="windows\usbip_detach.c" />
+    <ClCompile Include="windows\usbip_list.c" />
+    <ClCompile Include="windows\usbip_unbind.c" />
     <ClCompile Include="windows\getopt.c" />
     <ClCompile Include="windows\getopt_long.c" />
   </ItemGroup>
