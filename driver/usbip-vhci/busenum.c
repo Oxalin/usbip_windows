@@ -1102,43 +1102,48 @@ int process_read_irp(PPDO_DEVICE_DATA pdodata, PIRP read_irp)
     unsigned long seq_num, old_seq_num;
 
     KeAcquireSpinLock(&pdodata->q_lock, &oldirql);
-    for (le = pdodata->ioctl_q.Flink;
-        le !=&pdodata->ioctl_q;
-        le = le->Flink){
-    urb_r = CONTAINING_RECORD(le, struct urb_req, list);
-    if(urb_r->send==0){
-      ioctl_irp=urb_r->irp;
-      seq_num = ++(pdodata->seq_num);
-      urb_r->send=1;
-      old_seq_num = urb_r->seq_num;
-      urb_r->seq_num = seq_num;
-      break;
+    for (le = pdodata->ioctl_q.Flink; le != &pdodata->ioctl_q; le = le->Flink) {
+        urb_r = CONTAINING_RECORD(le, struct urb_req, list);
+
+        if (urb_r->send == 0) {
+            ioctl_irp = urb_r->irp;
+            seq_num = ++(pdodata->seq_num);
+            urb_r->send = 1;
+            old_seq_num = urb_r->seq_num;
+            urb_r->seq_num = seq_num;
+            break;
+        }
     }
+
+    if (ioctl_irp == NULL) {
+        if (pdodata->pending_read_irp)
+            status = STATUS_INVALID_DEVICE_REQUEST;
+        else {
+            IoMarkIrpPending(read_irp);
+            pdodata->pending_read_irp = read_irp;
+        }
+
+        KeReleaseSpinLock(&pdodata->q_lock, oldirql);
+        return status;
     }
-    if(NULL==ioctl_irp){
-    if(pdodata->pending_read_irp)
-      status = STATUS_INVALID_DEVICE_REQUEST;
-    else{
-      IoMarkIrpPending(read_irp);
-      pdodata->pending_read_irp = read_irp;
-    }
-    KeReleaseSpinLock(&pdodata->q_lock, oldirql);
-    return status;
-    }
+
     if(old_seq_num)
-      KdPrint(("Error, why old_seq_num %d\n", old_seq_num));
+        KdPrint(("Error, why old_seq_num %d\n", old_seq_num));
+
     KdPrint(("get a ioctl_irp %p %d\n", ioctl_irp, seq_num));
     status = set_read_irp_data(read_irp, ioctl_irp, seq_num, pdodata->devid);
-    if(status == STATUS_SUCCESS||!IoSetCancelRoutine(ioctl_irp, NULL)){
-    KeReleaseSpinLock(&pdodata->q_lock, oldirql);
-    return status;
+    if (status == STATUS_SUCCESS || !IoSetCancelRoutine(ioctl_irp, NULL)) {
+        KeReleaseSpinLock(&pdodata->q_lock, oldirql);
+        return status;
     }
+
     /* set_read_irp failed, we must complete ioctl_irp */
-    RemoveEntryList (le);
+    RemoveEntryList(le);
     KeReleaseSpinLock(&pdodata->q_lock, oldirql);
     ExFreeToNPagedLookasideList(&g_lookaside, urb_r);
     ioctl_irp->IoStatus.Status = STATUS_INVALID_PARAMETER;
-    IoCompleteRequest (ioctl_irp, IO_NO_INCREMENT);
+    IoCompleteRequest(ioctl_irp, IO_NO_INCREMENT);
+
     return status;
 }
 
@@ -1168,39 +1173,43 @@ Bus_Read (
     }
 
     fdoData = (PFDO_DEVICE_DATA) DeviceObject->DeviceExtension;
-
     Bus_IncIoCount (fdoData);
 
     //
     // Check to see whether the bus is removed
     //
-
-    if (fdoData->DevicePnPState == Deleted){
+    if (fdoData->DevicePnPState == Deleted) {
         status = STATUS_NO_SUCH_DEVICE;
-  goto END;
+        goto END;
     }
+
     stackirp = IoGetCurrentIrpStackLocation(Irp);
     pdodata = stackirp->FileObject->FsContext;
-    if(NULL==pdodata||pdodata->Present == FALSE){
-    status = STATUS_INVALID_DEVICE_REQUEST;
-    goto END;
+    if (NULL == pdodata || pdodata->Present == FALSE) {
+        status = STATUS_INVALID_DEVICE_REQUEST;
+        goto END;
     }
-    if(pdodata->pending_read_irp){
-    status = STATUS_INVALID_PARAMETER;
-    goto END;
+
+    if (pdodata->pending_read_irp) {
+        status = STATUS_INVALID_PARAMETER;
+        goto END;
     }
+
     status = process_read_irp(pdodata, Irp);
+
 END:
     KdPrint(("Read return:0x%08x\n", status));
-    if(status != STATUS_PENDING){
-    Irp->IoStatus.Status = status;
-    IoCompleteRequest (Irp, IO_NO_INCREMENT);
+    if (status != STATUS_PENDING) {
+        Irp->IoStatus.Status = status;
+        IoCompleteRequest (Irp, IO_NO_INCREMENT);
     }
     Bus_DecIoCount (fdoData);
+
     return status;
 }
 
-NTSTATUS Bus_Create (__in PDEVICE_OBJECT DeviceObject, __in PIRP Irp) {
+NTSTATUS Bus_Create (__in PDEVICE_OBJECT DeviceObject, __in PIRP Irp)
+{
     PIO_STACK_LOCATION irpStack;
     NTSTATUS status;
     PFDO_DEVICE_DATA fdoData;
@@ -1238,7 +1247,8 @@ NTSTATUS Bus_Create (__in PDEVICE_OBJECT DeviceObject, __in PIRP Irp) {
     return status;
 }
 
-NTSTATUS Bus_Cleanup(__in PDEVICE_OBJECT dev, __in PIRP irp) {
+NTSTATUS Bus_Cleanup(__in PDEVICE_OBJECT dev, __in PIRP irp)
+{
     PIO_STACK_LOCATION irpstack;
     NTSTATUS status;
     PFDO_DEVICE_DATA fdodata;
@@ -1275,8 +1285,8 @@ NTSTATUS Bus_Cleanup(__in PDEVICE_OBJECT dev, __in PIRP irp) {
     pdodata = irpstack->FileObject->FsContext;
 
     if(pdodata) {
-        pdodata->fo=NULL;
-        irpstack->FileObject->FsContext=NULL;
+        pdodata->fo = NULL;
+        irpstack->FileObject->FsContext = NULL;
 
         if(pdodata->Present)
             bus_unplug_dev(pdodata->SerialNo, fdodata);
@@ -1291,7 +1301,8 @@ NTSTATUS Bus_Cleanup(__in PDEVICE_OBJECT dev, __in PIRP irp) {
     return status;
 }
 
-NTSTATUS Bus_Close(__in PDEVICE_OBJECT DeviceObject, __in PIRP Irp) {
+NTSTATUS Bus_Close(__in PDEVICE_OBJECT DeviceObject, __in PIRP Irp)
+{
     PIO_STACK_LOCATION irpStack;
     NTSTATUS status;
     PFDO_DEVICE_DATA fdoData;
@@ -1332,8 +1343,9 @@ NTSTATUS Bus_Close(__in PDEVICE_OBJECT DeviceObject, __in PIRP Irp) {
     return status;
 }
 
-static void * seek_to_next_desc(PUSB_CONFIGURATION_DESCRIPTOR config,
-  unsigned int *offset, unsigned char type) {
+static void *seek_to_next_desc(PUSB_CONFIGURATION_DESCRIPTOR config,
+                               unsigned int *offset, unsigned char type)
+{
     unsigned int offsetTemp = *offset;
     PUSB_COMMON_DESCRIPTOR desc;
 
@@ -1357,27 +1369,29 @@ static void * seek_to_next_desc(PUSB_CONFIGURATION_DESCRIPTOR config,
     } while(1);
 }
 
-static void * seek_to_one_intf_desc(PUSB_CONFIGURATION_DESCRIPTOR config,
-  unsigned int * offset, unsigned int num, unsigned int alternatesetting) {
+static void *seek_to_one_intf_desc(PUSB_CONFIGURATION_DESCRIPTOR config,
+                                   unsigned int * offset, unsigned int num,
+                                   unsigned int alternatesetting)
+{
     PUSB_INTERFACE_DESCRIPTOR intf_desc;
 
     do {
         intf_desc = seek_to_next_desc(config, offset,
                       USB_INTERFACE_DESCRIPTOR_TYPE);
 
-        if(NULL == intf_desc)
+        if (NULL == intf_desc)
             break;
 
-        if(intf_desc->bInterfaceNumber < num)
+        if (intf_desc->bInterfaceNumber < num)
             continue;
 
-        if(intf_desc->bInterfaceNumber > num)
+        if (intf_desc->bInterfaceNumber > num)
             break;
 
-        if(intf_desc->bAlternateSetting < alternatesetting)
+        if (intf_desc->bAlternateSetting < alternatesetting)
             continue;
 
-        if(intf_desc->bAlternateSetting > alternatesetting)
+        if (intf_desc->bAlternateSetting > alternatesetting)
             break;
 
         return intf_desc;
@@ -1406,7 +1420,8 @@ void show_pipe(unsigned int num, PUSBD_PIPE_INFORMATION pipe)
 }
 
 void set_pipe(PUSBD_PIPE_INFORMATION pipe,
-  PUSB_ENDPOINT_DESCRIPTOR ep_desc,  unsigned char speed) {
+              PUSB_ENDPOINT_DESCRIPTOR ep_desc,  unsigned char speed)
+{
     USHORT mult;
     pipe->MaximumPacketSize = ep_desc->wMaxPacketSize;
     pipe->EndpointAddress = ep_desc->bEndpointAddress;
@@ -1425,7 +1440,8 @@ void set_pipe(PUSBD_PIPE_INFORMATION pipe,
 }
 
 int post_select_interface(PPDO_DEVICE_DATA pdodata,
-  struct _URB_SELECT_INTERFACE * req) {
+                          struct _URB_SELECT_INTERFACE * req)
+{
     unsigned int i;
     unsigned int offset = 0;
     USBD_INTERFACE_INFORMATION *intf = &req->Interface;
@@ -1462,7 +1478,7 @@ int post_select_interface(PPDO_DEVICE_DATA pdodata,
         return STATUS_INVALID_PARAMETER;
     }
 
-    /* FIXME  do we need set the other info in intf ? */
+    /* FIXME  do we need to set the other info in intf ? */
     intf->NumberOfPipes = i;
 
     intf_desc = seek_to_one_intf_desc(
@@ -1708,7 +1724,7 @@ void cancel_irp(PDEVICE_OBJECT pdo, PIRP Irp) {
         ExFreeToNPagedLookasideList(&g_lookaside, urb_r);
     }
     else {
-      KdPrint(("Warning, why can't we find the URB?\n"));
+        KdPrint(("Warning, why can't we find the URB?\n"));
     }
 
     Irp->IoStatus.Status = STATUS_CANCELLED;
@@ -1726,16 +1742,16 @@ int try_addq(PPDO_DEVICE_DATA pdodata, PIRP Irp)
 
     urb_r = ExAllocateFromNPagedLookasideList(&g_lookaside);
 
-    if (NULL == urb_r)
+    if (urb_r == NULL)
         return STATUS_INSUFFICIENT_RESOURCES;
 
     RtlZeroMemory(urb_r, sizeof(*urb_r));
     urb_r->irp = Irp;
     KeAcquireSpinLock(&pdodata->q_lock, &oldirql);
     read_irp = pdodata->pending_read_irp;
-    pdodata->pending_read_irp=NULL;
+    pdodata->pending_read_irp = NULL;
 
-    if (NULL == read_irp) {
+    if (read_irp == NULL) {
         IoSetCancelRoutine(Irp, cancel_irp);
 
         if (Irp->Cancel && IoSetCancelRoutine(Irp, NULL)) {
@@ -1753,7 +1769,7 @@ int try_addq(PPDO_DEVICE_DATA pdodata, PIRP Irp)
 
     KeReleaseSpinLock(&pdodata->q_lock, oldirql);
 
-    if (NULL == read_irp)
+    if (read_irp == NULL)
         return STATUS_PENDING;
 
     read_irp->IoStatus.Status = set_read_irp_data(read_irp, Irp, seq_num, pdodata->devid);
