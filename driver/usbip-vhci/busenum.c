@@ -339,7 +339,8 @@ int process_write_irp(PPDO_DEVICE_DATA pdodata, PIRP irp) {
     struct _URB_ISOCH_TRANSFER *urb;
     struct usbip_iso_packet_descriptor * ip_desc;
     NTSTATUS ioctl_status = STATUS_INVALID_PARAMETER;
-    int found = 0, iso_len = 0, send;
+    bool found = false;
+    int iso_len = 0, send;
     ULONG in_len = 0;
     struct urb_req * urb_r;
 
@@ -362,7 +363,7 @@ int process_write_irp(PPDO_DEVICE_DATA pdodata, PIRP irp) {
             ioctl_irp = urb_r->irp;
 
             if (IoSetCancelRoutine(ioctl_irp, NULL)) {
-                found = 1;
+                found = true;
                 RemoveEntryList (le);
                 send = urb_r->send;
             }
@@ -1099,7 +1100,7 @@ int process_read_irp(PPDO_DEVICE_DATA pdodata, PIRP read_irp)
     struct urb_req *urb_r;
     PLIST_ENTRY le;
     unsigned long seq_num, old_seq_num;
-    int found=0;
+
     KeAcquireSpinLock(&pdodata->q_lock, &oldirql);
     for (le = pdodata->ioctl_q.Flink;
         le !=&pdodata->ioctl_q;
@@ -1681,21 +1682,21 @@ DRIVER_CANCEL cancel_irp;
 
 void cancel_irp(PDEVICE_OBJECT pdo, PIRP Irp) {
     PLIST_ENTRY le = NULL;
-    int found=0;
+    bool found = false;
     struct urb_req * urb_r;
     PPDO_DEVICE_DATA pdodata;
     KIRQL oldirql = Irp->CancelIrql;
 
     pdodata = (PPDO_DEVICE_DATA) pdo->DeviceExtension;
   //  IoReleaseCancelSpinLock(DISPATCH_LEVEL);
-    KdPrint(("Cancle Irp %p called\n", Irp));
+    KdPrint(("Cancel Irp %p called\n", Irp));
     KeAcquireSpinLockAtDpcLevel(&pdodata->q_lock);
 
     for (le = pdodata->ioctl_q.Flink; le != &pdodata->ioctl_q; le = le->Flink) {
         urb_r = CONTAINING_RECORD (le, struct urb_req, list);
 
         if (urb_r->irp == Irp) {
-            found = 1;
+            found = true;
             RemoveEntryList (le);
             break;
         }
