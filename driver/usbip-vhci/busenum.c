@@ -1708,18 +1708,18 @@ void cancel_irp(PDEVICE_OBJECT pdo, PIRP Irp)
     bool found = false;
     struct urb_req * urb_r;
     PPDO_DEVICE_DATA pdodata;
-    KIRQL oldirql = Irp->CancelIrql;
+    KIRQL oldirql;
 
     KdPrint(("Cancel Irp %p called\n", Irp));
     pdodata = (PPDO_DEVICE_DATA) pdo->DeviceExtension;
-    KeAcquireSpinLockAtDpcLevel(&pdodata->q_lock);
+    KeAcquireSpinLock(&pdodata->q_lock, &oldirql);
 
     for (le = pdodata->ioctl_q.Flink; le != &pdodata->ioctl_q; le = le->Flink) {
-        urb_r = CONTAINING_RECORD (le, struct urb_req, list);
+        urb_r = CONTAINING_RECORD(le, struct urb_req, list);
 
         if (urb_r->irp == Irp) {
             found = true;
-            RemoveEntryList (le);
+            RemoveEntryList(le);
             break;
         }
     }
