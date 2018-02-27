@@ -1694,18 +1694,24 @@ int proc_urb(PPDO_DEVICE_DATA pdodata, void *arg) {
     return STATUS_INVALID_PARAMETER;
 }
 
+// FIXME Evaluate and possibly move to Cancel-Safe IRP Queues instead of
+// our own cancel routine. Cancel-Safe IRP Queues are natively available
+// since Windows XP. If we still want to support Windows 2000, we need to
+// explicitly link againt the Csq.lib library that is included in the
+// Windows Driver Kit (WDK).
+// See: https://docs.microsoft.com/en-us/windows-hardware/drivers/kernel/cancel-safe-irp-queues
 DRIVER_CANCEL cancel_irp;
 
-void cancel_irp(PDEVICE_OBJECT pdo, PIRP Irp) {
+void cancel_irp(PDEVICE_OBJECT pdo, PIRP Irp)
+{
     PLIST_ENTRY le = NULL;
     bool found = false;
     struct urb_req * urb_r;
     PPDO_DEVICE_DATA pdodata;
     KIRQL oldirql = Irp->CancelIrql;
 
-    pdodata = (PPDO_DEVICE_DATA) pdo->DeviceExtension;
-  //  IoReleaseCancelSpinLock(DISPATCH_LEVEL);
     KdPrint(("Cancel Irp %p called\n", Irp));
+    pdodata = (PPDO_DEVICE_DATA) pdo->DeviceExtension;
     KeAcquireSpinLockAtDpcLevel(&pdodata->q_lock);
 
     for (le = pdodata->ioctl_q.Flink; le != &pdodata->ioctl_q; le = le->Flink) {
