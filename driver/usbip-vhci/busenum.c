@@ -1705,37 +1705,50 @@ DRIVER_CANCEL cancel_irp;
 void cancel_irp(PDEVICE_OBJECT pdo, PIRP Irp)
 {
     PLIST_ENTRY le = NULL;
-    bool found = false;
-    struct urb_req * urb_r;
-    PPDO_DEVICE_DATA pdodata;
-    KIRQL oldirql;
+    struct urb_req *urb_r = NULL;
+    PPDO_DEVICE_DATA pdodata = (PPDO_DEVICE_DATA) pdo->DeviceExtension;
+    KIRQL cancelIrql = Irp->CancelIrql;
 
     KdPrint(("Cancel Irp %p called\n", Irp));
-    pdodata = (PPDO_DEVICE_DATA) pdo->DeviceExtension;
-    KeAcquireSpinLock(&pdodata->q_lock, &oldirql);
+
+    // From: https://msdn.microsoft.com/en-us/library/windows/hardware/ff540742(v=vs.85).aspx
+    // The Cancel routine executes in an arbitrary thread context at
+    // IRQL = DISPATCH_LEVEL until it calls IoReleaseCancelSpinLock, which
+    // changes the IRQL to a caller-supplied value. The driver should specify
+    // Irp->CancelIrql for this value.
+    //
+    // From: https://docs.microsoft.com/en-us/windows-hardware/drivers/kernel/implementing-a-cancel-routine
+    // Never call IoCompleteRequest with an IRP while holding a spin lock.
+    // Attempting to complete an IRP while holding a spin lock can cause deadlocks.
+    //
+    // We don't need to hold the global spinlock, we can use our own.
+    IoReleaseCancelSpinLock(DISPATCH_LEVEL);
+
+    KeAcquireSpinLockAtDpcLevel(&pdodata->q_lock);
 
     for (le = pdodata->ioctl_q.Flink; le != &pdodata->ioctl_q; le = le->Flink) {
         urb_r = CONTAINING_RECORD(le, struct urb_req, list);
 
         if (urb_r->irp == Irp) {
-            found = true;
             RemoveEntryList(le);
             break;
         }
+        urb_r = NULL;
     }
 
-    KeReleaseSpinLock(&pdodata->q_lock, oldirql);
+    KeReleaseSpinLock(&pdodata->q_lock, cancelIrql);
 
-    if (found) {
+    if (urb_r) {
         ExFreeToNPagedLookasideList(&g_lookaside, urb_r);
     }
     else {
-        KdPrint(("Warning, why can't we find the URB?\n"));
+        KdPrint(("Warning, why can't we find the URB associated to the IRP?\n"));
     }
 
     Irp->IoStatus.Status = STATUS_CANCELLED;
+    Irp->IoStatus.Information = 0;
+
     IoCompleteRequest(Irp, IO_NO_INCREMENT);
-    IoReleaseCancelSpinLock(Irp->CancelIrql);
 }
 
 int try_addq(PPDO_DEVICE_DATA pdodata, PIRP Irp)
