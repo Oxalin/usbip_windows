@@ -5,6 +5,13 @@
 #include "driver.h"
 #include "public.h"
 
+// For IRP_MN_DEVICE_ENUMERATED, it is included by default in wdm.h since
+// Windows 7.
+#include <wdm.h>
+#if WINVER<0x0701
+#define IRP_MN_DEVICE_ENUMERATED 0x19
+#endif
+
 //
 // Let us use newly introduced (Windows Server 2003 DDK) safe string function
 // to avoid security issues related buffer overrun.
