@@ -1,7 +1,7 @@
 //
 // Define an Interface Guid for bus enumerator class.
-// This GUID is used to register (IoRegisterDeviceInterface) 
-// an instance of an interface so that enumerator application 
+// This GUID is used to register (IoRegisterDeviceInterface)
+// an instance of an interface so that enumerator application
 // can send an ioctl to the bus driver.
 //
 
@@ -22,7 +22,7 @@ DEFINE_GUID (GUID_DEVCLASS_USBIP,
 // Define a WMI GUID to get busenum info.
 //
 
-DEFINE_GUID (USBIP_BUS_WMI_STD_DATA_GUID, 
+DEFINE_GUID (USBIP_BUS_WMI_STD_DATA_GUID,
         0x0006A660, 0x8F12, 0x11d2, 0xB8, 0x54, 0x00, 0xC0, 0x4F, 0xAD, 0x51, 0x71);
 //{0006A660-8F12-11d2-B854-00C04FAD5171}
 
@@ -30,14 +30,14 @@ DEFINE_GUID (USBIP_BUS_WMI_STD_DATA_GUID,
 // Define a WMI GUID to get USBIP device info.
 //
 
-DEFINE_GUID (USBIP_WMI_STD_DATA_GUID, 
+DEFINE_GUID (USBIP_WMI_STD_DATA_GUID,
         0xBBA21300L, 0x6DD3, 0x11d2, 0xB8, 0x44, 0x00, 0xC0, 0x4F, 0xAD, 0x51, 0x71);
 
 //
 // Define a WMI GUID to represent device arrival notification WMIEvent class.
 //
 
-DEFINE_GUID (USBIP_NOTIFY_DEVICE_ARRIVAL_EVENT, 
+DEFINE_GUID (USBIP_NOTIFY_DEVICE_ARRIVAL_EVENT,
         0x1cdaff1, 0xc901, 0x45b4, 0xb3, 0x59, 0xb5, 0x54, 0x27, 0x25, 0xe2, 0x9c);
 // {01CDAFF1-C901-45b4-B359-B5542725E29C}
 
@@ -102,15 +102,15 @@ typedef struct _BUSENUM_EJECT_HARDWARE
     // sizeof (struct _EJECT_HARDWARE)
     //
 
-    ULONG Size;                                    
+    ULONG Size;
 
     //
     // Serial number of the device to be ejected
     //
 
     ULONG   SerialNo;
-    
-    ULONG Reserved[2];    
+
+    ULONG Reserved[2];
 
 } BUSENUM_EJECT_HARDWARE, *PBUSENUM_EJECT_HARDWARE;
 

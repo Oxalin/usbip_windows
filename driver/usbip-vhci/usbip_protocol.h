@@ -228,7 +228,7 @@ struct usbip_header_basic {
 	/* devid is used to specify a remote USB device uniquely instead
 	 * of busnum and devnum in Linux. In the case of Linux stub_driver,
 	 * this value is ((busnum << 16) | devnum) */
-	unsigned int devid;  
+	unsigned int devid;
 
 #define USBIP_DIR_OUT	0
 #define USBIP_DIR_IN 	1

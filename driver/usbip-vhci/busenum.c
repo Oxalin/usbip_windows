@@ -393,14 +393,14 @@ int process_write_irp(PPDO_DEVICE_DATA pdodata, PIRP irp) {
     }
 
     switch (irpstack->Parameters.DeviceIoControl.IoControlCode) {
-        case IOCTL_INTERNAL_USB_SUBMIT_URB:
-            break;
+    case IOCTL_INTERNAL_USB_SUBMIT_URB:
+        break;
 
-        case IOCTL_INTERNAL_USB_RESET_PORT:
-            ioctl_status = STATUS_SUCCESS;
-        /* pass through */
-        default:
-            goto end;
+    case IOCTL_INTERNAL_USB_RESET_PORT:
+        ioctl_status = STATUS_SUCCESS;
+    /* pass through */
+    default:
+        goto end;
     }
 
     urb =  irpstack->Parameters.Others.Argument1;
@@ -409,51 +409,51 @@ int process_write_irp(PPDO_DEVICE_DATA pdodata, PIRP irp) {
         goto end;
 
     switch (urb->Hdr.Function) {
-        case URB_FUNCTION_GET_DESCRIPTOR_FROM_INTERFACE:
-        case URB_FUNCTION_GET_DESCRIPTOR_FROM_DEVICE:
-            in = 1;
-            type = USB_ENDPOINT_TYPE_CONTROL;
-            break;
+    case URB_FUNCTION_GET_DESCRIPTOR_FROM_INTERFACE:
+    case URB_FUNCTION_GET_DESCRIPTOR_FROM_DEVICE:
+        in = 1;
+        type = USB_ENDPOINT_TYPE_CONTROL;
+        break;
 
-        case URB_FUNCTION_CLASS_DEVICE:
-        case URB_FUNCTION_CLASS_INTERFACE:
-        case URB_FUNCTION_CLASS_ENDPOINT:
-        case URB_FUNCTION_CLASS_OTHER:
-        case URB_FUNCTION_VENDOR_DEVICE:
-        case URB_FUNCTION_VENDOR_INTERFACE:
-        case URB_FUNCTION_VENDOR_ENDPOINT:
-        case URB_FUNCTION_VENDOR_OTHER:
-            in = urb->TransferFlags & USBD_TRANSFER_DIRECTION_IN;
-            type = USB_ENDPOINT_TYPE_CONTROL;
-            break;
+    case URB_FUNCTION_CLASS_DEVICE:
+    case URB_FUNCTION_CLASS_INTERFACE:
+    case URB_FUNCTION_CLASS_ENDPOINT:
+    case URB_FUNCTION_CLASS_OTHER:
+    case URB_FUNCTION_VENDOR_DEVICE:
+    case URB_FUNCTION_VENDOR_INTERFACE:
+    case URB_FUNCTION_VENDOR_ENDPOINT:
+    case URB_FUNCTION_VENDOR_OTHER:
+        in = urb->TransferFlags & USBD_TRANSFER_DIRECTION_IN;
+        type = USB_ENDPOINT_TYPE_CONTROL;
+        break;
 
-        case URB_FUNCTION_BULK_OR_INTERRUPT_TRANSFER:
-            in = pipe2direct(urb->PipeHandle);
-            type = USB_ENDPOINT_TYPE_BULK;
-            break;
+    case URB_FUNCTION_BULK_OR_INTERRUPT_TRANSFER:
+        in = pipe2direct(urb->PipeHandle);
+        type = USB_ENDPOINT_TYPE_BULK;
+        break;
 
-        case URB_FUNCTION_ISOCH_TRANSFER:
-            in = pipe2direct(urb->PipeHandle);
-            type = USB_ENDPOINT_TYPE_ISOCHRONOUS;
-            break;
+    case URB_FUNCTION_ISOCH_TRANSFER:
+        in = pipe2direct(urb->PipeHandle);
+        type = USB_ENDPOINT_TYPE_ISOCHRONOUS;
+        break;
 
-        case URB_FUNCTION_SELECT_CONFIGURATION:
-            in = 0;
-            type = USB_ENDPOINT_TYPE_CONTROL;
-            break;
+    case URB_FUNCTION_SELECT_CONFIGURATION:
+        in = 0;
+        type = USB_ENDPOINT_TYPE_CONTROL;
+        break;
 
-        case URB_FUNCTION_SELECT_INTERFACE:
-            in = 0;
-            type = USB_ENDPOINT_TYPE_CONTROL;
-            if(post_select_interface(pdodata, (struct _URB_SELECT_INTERFACE *)urb) != STATUS_SUCCESS)
-                goto end;
-            break;
-
-        default:
-            KdPrint(("Warning, not supported func:%d\n",
-                      urb->Hdr.Function));
+    case URB_FUNCTION_SELECT_INTERFACE:
+        in = 0;
+        type = USB_ENDPOINT_TYPE_CONTROL;
+        if(post_select_interface(pdodata, (struct _URB_SELECT_INTERFACE *)urb) != STATUS_SUCCESS)
             goto end;
+        break;
+
+    default:
+        KdPrint(("Warning, not supported func:%d\n", urb->Hdr.Function));
+        goto end;
     }
+
     if ((ULONG)h->u.ret_submit.actual_length > urb->TransferBufferLength) {
         KdPrint(("Warning, ret too big %d %d!\n",
                   h->u.ret_submit.actual_length,
@@ -1822,11 +1822,8 @@ int try_addq(PPDO_DEVICE_DATA pdodata, PIRP Irp)
     return status;
 }
 
-NTSTATUS
-Bus_Internal_IoCtl (
-    __in  PDEVICE_OBJECT  DeviceObject,
-    __in  PIRP            Irp
-    )
+NTSTATUS Bus_Internal_IoCtl(__in PDEVICE_OBJECT DeviceObject,
+                            __in PIRP Irp)
 {
     PIO_STACK_LOCATION      irpStack;
     NTSTATUS                status;
@@ -1895,19 +1892,14 @@ Bus_Internal_IoCtl (
 
 /*++
 Routine Description:
-
     Handle user mode PlugIn, UnPlug and device Eject requests.
 
 Arguments:
-
    DeviceObject - pointer to a device object.
-
    Irp - pointer to an I/O Request Packet.
 
 Return Value:
-
    NT status code
-
 --*/
 NTSTATUS Bus_IoCtl(__in PDEVICE_OBJECT DeviceObject, __in PIRP Irp) {
     PIO_STACK_LOCATION irpStack;
@@ -2008,78 +2000,55 @@ END:
     // cause.
     IoCompleteRequest(Irp, IO_NO_INCREMENT);
     Bus_DecIoCount(fdoData);
+
     return status;
 }
 
-
-VOID
-Bus_DriverUnload (
-    __in PDRIVER_OBJECT DriverObject
-    )
 /*++
 Routine Description:
     Clean up everything we did in driver entry.
 
 Arguments:
-
    DriverObject - pointer to this driverObject.
 
-
 Return Value:
-
 --*/
+VOID Bus_DriverUnload(__in PDRIVER_OBJECT DriverObject)
 {
-    PAGED_CODE ();
+    PAGED_CODE();
 
-    Bus_KdPrint_Def (BUS_DBG_SS_TRACE, ("Unload\n"));
+    Bus_KdPrint_Def(BUS_DBG_SS_TRACE, ("Unload\n"));
 
     ExDeleteNPagedLookasideList(&g_lookaside);
-
     //
     // All the device objects should be gone.
     //
-
-    ASSERT (NULL == DriverObject->DeviceObject);
+    ASSERT(NULL == DriverObject->DeviceObject);
 
     //
     // Here we free all the resources allocated in the DriverEntry
     //
-
     if (Globals.RegistryPath.Buffer)
         ExFreePool(Globals.RegistryPath.Buffer);
 
     return;
 }
 
-VOID
-Bus_IncIoCount (
-    __in  PFDO_DEVICE_DATA   FdoData
-    )
-
 /*++
-
 Routine Description:
-
     This routine increments the number of requests the device receives
 
-
 Arguments:
-
     FdoData - pointer to the FDO device extension.
 
 Return Value:
-
     VOID
-
 --*/
-
+VOID Bus_IncIoCount(__in  PFDO_DEVICE_DATA FdoData)
 {
-
-    LONG            result;
-
+    LONG result;
 
     result = InterlockedIncrement(&FdoData->OutstandingIO);
-
     ASSERT(result > 0);
     //
     // Need to clear StopEvent (when OutstandingIO bumps from 1 to 2)
@@ -2094,32 +2063,21 @@ Return Value:
     return;
 }
 
-VOID
-Bus_DecIoCount(
-    __in  PFDO_DEVICE_DATA  FdoData
-    )
-
 /*++
-
 Routine Description:
-
     This routine decrements as it complete the request it receives
 
 Arguments:
-
     FdoData - pointer to the FDO device extension.
 
 Return Value:
-
     VOID
-
 --*/
+VOID Bus_DecIoCount(__in PFDO_DEVICE_DATA FdoData)
 {
-
-    LONG            result;
+    LONG result;
 
     result = InterlockedDecrement(&FdoData->OutstandingIO);
-
     ASSERT(result >= 0);
 
     if (result == 1) {
@@ -2131,24 +2089,20 @@ Return Value:
         // will appear between the decrement and the moment when
         // the value is actually used.
         //
-
         KeSetEvent (&FdoData->StopEvent, IO_NO_INCREMENT, FALSE);
 
     }
 
     if (result == 0) {
-
         //
         // The count is 1-biased, so it can be zero only if an
         // extra decrement is done when a remove Irp is received
         //
-
         ASSERT(FdoData->DevicePnPState == Deleted);
 
         //
         // Set the remove event, so the device object can be deleted
         //
-
         KeSetEvent (&FdoData->RemoveEvent, IO_NO_INCREMENT, FALSE);
 
     }
