@@ -207,8 +207,9 @@ void try_save_config(PPDO_DEVICE_DATA pdodata, struct _URB_CONTROL_DESCRIPTOR_RE
   }
 
   if (cfg->wTotalLength < in_len) {
-    KdPrint(("length has something wrong, fix it to support some usb devices,
-            wTotalLength=%d in_len=%d\n", cfg->wTotalLength, in_len));
+    KdPrint(("length has something wrong, fix it to support some usb \
+              devices, wTotalLength=%d in_len=%d\n", cfg->wTotalLength,
+              in_len));
     in_len = cfg->wTotalLength;
     KdPrint(("edit by gd67 \n"));
   }
@@ -298,7 +299,7 @@ static void copy_iso_data(char *dest, ULONG dest_len, char *src,
             continue;
 
         if (urb->IsoPacket[i].Offset + urb->IsoPacket[i].Length > dest_len) {
-            KdPrint(("Warning, urb->IsoPacket[%d].Offset:%d +
+            KdPrint(("Warning, urb->IsoPacket[%d].Offset:%d + \
                     urb->IsoPacket[%d].Length:%d > dest_len:%d. Why?",
                     i, urb->IsoPacket[i].Offset,
                     i, urb->IsoPacket[i].Length, dest_len));
@@ -306,7 +307,7 @@ static void copy_iso_data(char *dest, ULONG dest_len, char *src,
         }
 
         if (offset + urb->IsoPacket[i].Length > src_len) {
-            KdPrint(("Warning, offset:%d + urb->IsoPacket[%d].Length:%d >
+            KdPrint(("Warning, offset:%d + urb->IsoPacket[%d].Length:%d > \
                       src_len:%d. Why?",
                       offset, i, urb->IsoPacket[i].Length, src_len));
              break;
@@ -1742,7 +1743,8 @@ void cancel_irp(PDEVICE_OBJECT pdo, PIRP Irp)
         ExFreeToNPagedLookasideList(&g_lookaside, urb_r);
     }
     else {
-        KdPrint(("Warning, why can't we find the URB associated to the IRP?\n"));
+        KdPrint(("Warning, why can't we find the URB associated to the \
+                  current IRP?\n"));
     }
 
     Irp->IoStatus.Status = STATUS_CANCELLED;
