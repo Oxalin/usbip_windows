@@ -1232,7 +1232,7 @@ NTSTATUS bus_unplug_dev(int addr, PFDO_DEVICE_DATA fdodata)
 {
     PLIST_ENTRY         entry;
     PPDO_DEVICE_DATA    pdodata;
-    bool found = FALSE, all;
+    int found = FALSE, all;
 
     PAGED_CODE();
 
