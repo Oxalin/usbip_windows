@@ -340,10 +340,9 @@ int process_write_irp(PPDO_DEVICE_DATA pdodata, PIRP irp) {
     struct _URB_ISOCH_TRANSFER *urb;
     struct usbip_iso_packet_descriptor * ip_desc;
     NTSTATUS ioctl_status = STATUS_INVALID_PARAMETER;
-    bool found = false;
     int iso_len = 0, send;
     ULONG in_len = 0;
-    struct urb_req * urb_r;
+    struct urb_req *urb_r = NULL;
 
     irpstack = IoGetCurrentIrpStackLocation (irp);
     len = irpstack->Parameters.Write.Length;
@@ -364,20 +363,20 @@ int process_write_irp(PPDO_DEVICE_DATA pdodata, PIRP irp) {
             ioctl_irp = urb_r->irp;
 
             if (IoSetCancelRoutine(ioctl_irp, NULL)) {
-                found = true;
                 RemoveEntryList (le);
                 send = urb_r->send;
             }
 
             break;
         }
+        urb_r = NULL;
     }
 
     KeReleaseSpinLock(&pdodata->q_lock, oldirql);
 
     irp->IoStatus.Information = len;
 
-    if (!found) {
+    if (!urb_r) {
         KdPrint(("Cannot find urb with seqnum %d\n", h->base.seqnum));
         // Might have been cancelled before, so return STATUS_SUCCES
         return STATUS_SUCCESS;
