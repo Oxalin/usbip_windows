@@ -1,32 +1,78 @@
-Addition by Arjan Mels on 2 Apr 2011:
-
-Fixed various issues:
-  - USB Mass Storage working under Vista & Win 7
-  - Drivers accessible as normal user (eliminates need for elevation of client
-                                       apps in Vista & Win7)
-  - Fixed handling of isochronous packets (mainly in Linux driver, but
-                                           one fix in Windows driver here)
-  - Fixed unplug handling
-  - Fixed usb port reset handling
-  - Adjusted code to allow compilation under and included project files for
-    Visual Studio 2010
-  - Added CTRL-C Handling in client
-  - Various smaller bugfixes/typos
-
-Addition by Arjan Mels on 16 Feb 2011:
-
-I modified the build script and code slightly to allow a x64 driver to compile.
-I have tested this and it works.
-
-x64 drivers for Vista & Windows 7 need to be signed with a special type of
+x64 drivers for Vista and Windows 7 need to be signed with a special type of
 code signing certificate (kernel mode driver code signing certificate)
-otherwise they will not operate.
+otherwise they will not operate. Drivers for all architectures need to be signed
+under Windows 10.
+
 Workaround in a administrative command prompt enter: "bcdedit /set testsigning on"
 Now all drivers will be accepted: THIS IS A SECURITY RISK
+You could also search for "Disable Driver Signature Enforcement" as an
+alternative.
 
-I will try to get a version signed by the people of ReactOS
-(http://reactos.org/wiki/Driver_Signing)
+To build userspace usbip tools:
 
+On a linux host:
+
+1. Install mingw32
+
+   For debian based linux distribution, run like this:
+     apt-get install mingw32
+
+2. run "make" in this directory
+
+
+To build kernel driver:
+
+On a Windows host:
+
+Note: you may have to edit build.bat and install.bat so the scripts will be able
+      to find where you installed Windows DDK / Windows driver kit and devcon.
+
+1. Install Windows DDK
+
+   Download version 7600.16385.1 (7.1.0) from MSDN site. You may test with newer
+   version since Windows DDK only officially supports up to Windows 7.
+
+2. Build the driver
+
+   Enter ./driver/usbip-vhci and run build-driver.bat to build the kernel driver.
+
+3. Install the driver
+
+   From a command prompt, launched as administrator in Windows version newer
+   than XP, run install-driver.bat to install the kernel driver.
+
+   * You need devcon (available in the Windows DDK folder) to install it. You
+     should copy devcon it under ./driver/tools/ or edit the install.bat file.
+
+   ** You may need to uncomment some lines in the script to turn off the
+      signature checkup and to add the certificate.
+
+To test:
+
+You'd better test the kernel driver in a virtual Windows guest. Then it won't
+crash your pc when this stuff BSOD. However, some bugs have been seen and
+reported only from a "bare metal" OS.
+
+To show the exported usb device from linux
+c:\wxp>usbip -l xxx.xxx.xxx.xxx
+To attach it
+c:\wxp>usbip -a xxx.xxx.xxx.xxx x-x to use it.
+To detach it (open another cmd window)
+c:\wxp>usbip -d 1
+
+About LICENSE:
+
+I'd like to release these code under GPL, but since the kernel driver is
+started from a ddk sample (toaster sample), there is some MS license stuff at
+the beginning of every driver file.
+
+But I think I will change/rewrite the driver codes heavily and at last I will
+make the driver compiled with mingw32, then I will delete all of the MS license
+stuff.
+
+Any question, please contact me with address Lepton Wu <ytht.net@gmail.com>
+
+---
 
 Original by Lepton Wu:
 
@@ -51,53 +97,3 @@ USB devices I have tested ok for me:
   - one usb TVBOX (it will display one or two screensoft and freeze, I don't
     know why, perhaps because the iso transfer is not so iso...)
   - one bluetooth dongle (just test file transfter from my phone)
-
-To build userspace usbip tool:
-
-On a linux host:
-
-1. Install mingw32
-
-   For debian based linux distribution, run like this:
-     apt-get install mingw32
-
-2. run "make" in this directory
-
-
-To build kernel driver:
-
-On a Windows host:
-
-1. Install Windows DDK
-
-   I download version 6001.18002 from MSDN site. I think the other version
-   perhaps will be ok too.
-
-2. Enter Windows xp build env, and run b.bat in this directroy to build and
-   install the kernel driver.
-
-   You need devcon (from Windows DDK sample) to install it.
-
-To test:
-
-You'd better test the kernel driver in a virtual Windows guest. Then
-it won't crash your pc when this stuff BSOD.
-
-To show the exported usb device from linux
-c:\wxp>usbip -l xxx.xxx.xxx.xxx
-To attach it
-c:\wxp>usbip -a xxx.xxx.xxx.xxx x-x to use it.
-To detach it (open another cmd window)
-c:\wxp>usbip -d 1
-
-About LICENSE:
-
-I'd like to release these code under GPL, but since the kernel driver is
-started from a ddk sample (toaster sample), there is some MS license stuff at
-the beginning of every driver file.
-
-But I think I will change/rewrite the driver codes heavyly and at last I will
-make the driver compiled with mingw32, then I will delete all of the MS license
-stuff.
-
-Any question, please contact me with address Lepton Wu <ytht.net@gmail.com>
