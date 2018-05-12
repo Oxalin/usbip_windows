@@ -1,3 +1,6 @@
+#ifndef _LINUX_IMPORT_H
+#define _LINUX_IMPORT_H
+
 // Since we want to talk with linux USB/IP module, we shall be able to
 // to understand what we are receiving. So here, we import some of the enum and
 // struct that will need to be translated from the linux module.
@@ -11,3 +14,7 @@ enum usb_device_speed {
 	USB_SPEED_SUPER,                        /* usb 3.0 */
 	USB_SPEED_SUPER_PLUS,                   /* usb 3.1 */
 };
+
+
+
+#endif //LINUX_IMPORT
