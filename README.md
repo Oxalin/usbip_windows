@@ -13,3 +13,9 @@ There are mostly 3 objectives to this fork:
 Any interested person willing to contribute to the code is welcome.
 * The first action will be do search, find and gather patches lying around in pull requests to the original source code and in the forum.
 * Next will be to have a driver compatible with Linux kernel 3.15 and newer.
+
+# Latest updates
+
+December, 4th, 2018: this project is still alive even though it has been awhile since my last commit. Porting the latest Linux userspace tools was going great when I halted the development a few months ago. The problem is that I'm working on the project only in my sparetimes and, since last year, I'm newly a father which gives me a lot less of free time. The only time available is once everyone is asleep where, very often, I also just fall asleep myself.
+
+I should resume this work shortly, which is good news: I should have time during Christmas vacation and afterward. I'm also working on other projects, like VCE for AMD's GCN 1.0, some packages here and there, some tools that I work with at work regularly (XLS to GTFS | GTFSBuilder and TransitFeed). So, I'll still have to share my time across the board.
