@@ -22,7 +22,7 @@ The big problem I was facing the last time I worked on the project is the fact t
 
 This approach should be used to port the tools to BSDs. I still have to figure out how hard it would be to port the drivers from Linux to BSD (I came along a FreeBSD request not so long ago).
 
-Someone also pointed out that there is another active project aiming at have a full USP/IP implementation, with both client and server side drivers and tools. I had a quick look and it seems the userspace tools are based on the old code. While this is great, I think we should 
+Someone also pointed out that there is another active project aiming at having a full USP/IP implementation, with both client and server side drivers and tools. I had a quick look and it seems the userspace tools are based on the old code. While this is great to have working tools, I think we should find a way to combine both projects so the common tools could as close as possible to the ones under Linux, but with the extra Windows applications.
 
 ## December, 4th, 2018
 This project is still alive even though it has been awhile since my last commit. Porting the latest Linux userspace tools was going great when I halted the development a few months ago. The problem is that I'm working on the project only in my sparetimes and, since last year, I'm newly a father which gives me a lot less of free time. The only time available is once everyone is asleep where, very often, I also just fall asleep myself.
