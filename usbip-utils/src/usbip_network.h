@@ -1,23 +1,51 @@
+/* SPDX-License-Identifier: GPL-2.0 */
 /*
- * Copyright (C) 2005-2007 Takahiro Hirofuchi
- */
+* Copyright (C) 2005-2007 Takahiro Hirofuchi
+*/
 
-#ifndef _USBIP_NETWORK_H
-#define _USBIP_NETWORK_H
+#ifndef __USBIP_NETWORK_H
+#define __USBIP_NETWORK_H
 
-#include "usbip.h"
+#ifdef HAVE_CONFIG_H
+#include "../config.h"
+#endif
+
+#include <sys/types.h>
+
+#ifdef __linux__
+#else
+
+#include "../../../include/stdint.h"
+
+#ifdef _MSC_VER
+
+#include <BaseTsd.h>
+typedef SSIZE_T ssize_t;
+
+#endif //_MSC_VER
+
+#endif
+
 
 #ifdef __GNUC__
 #define PACKED __attribute__((__packed__))
+#define UNUSED __attribute__((__unused__))
 #else
 #pragma pack(push,1)
 #define PACKED /* */
+#define UNUSED /* */
 #endif
 
-/* -------------------------------------------------- */
-/* Define Protocol Format                             */
-/* -------------------------------------------------- */
+#ifndef EAI_SYSTEM
 
+/* Not defined on Windows. Should we rely on this error or should it be replaced?  */
+#define EAI_SYSTEM	  -11	/* System error returned in 'errno'.  */
+
+#endif
+
+extern int usbip_port;
+extern char *usbip_port_string;
+void usbip_setup_port_number(char *arg);
 
 /* ---------------------------------------------------------------------- */
 /* Common header for all the kinds of PDUs. */
@@ -32,15 +60,13 @@ struct op_common {
 #define ST_OK	0x00
 #define ST_NA	0x01
 	uint32_t status; /* op_code status (for reply) */
-
 } PACKED;
 
 #define PACK_OP_COMMON(pack, op_common)  do {\
-	pack_uint16_t(pack, &(op_common)->version);\
-	pack_uint16_t(pack, &(op_common)->code   );\
-	pack_uint32_t(pack, &(op_common)->status );\
+	usbip_net_pack_uint16_t(pack, &(op_common)->version);\
+	usbip_net_pack_uint16_t(pack, &(op_common)->code);\
+	usbip_net_pack_uint32_t(pack, &(op_common)->status);\
 } while (0)
-
 
 /* ---------------------------------------------------------------------- */
 /* Dummy Code */
@@ -59,8 +85,8 @@ struct op_devinfo_request {
 } PACKED;
 
 struct op_devinfo_reply {
-	struct usb_device udev;
-	struct usb_interface uinf[];
+	struct usbip_usb_device usbip_dev;
+	struct usbip_usb_interface usbip_inf[];
 } PACKED;
 
 
@@ -75,18 +101,16 @@ struct op_import_request {
 } PACKED;
 
 struct op_import_reply {
-	struct usb_device udev;
-//	struct usb_interface uinf[];
+	struct usbip_usb_device usbip_dev;
+//	struct usbip_usb_interface usbip_inf[];
 } PACKED;
 
 #define PACK_OP_IMPORT_REQUEST(pack, request)  do {\
 } while (0)
 
 #define PACK_OP_IMPORT_REPLY(pack, reply)  do {\
-	pack_usb_device(pack, &(reply)->udev);\
+	usbip_net_pack_usb_device(pack, &(reply)->usbip_dev);\
 } while (0)
-
-
 
 /* ---------------------------------------------------------------------- */
 /* Export a USB device to a remote host. */
@@ -95,7 +119,7 @@ struct op_import_reply {
 #define OP_REP_EXPORT	(OP_REPLY   | OP_EXPORT)
 
 struct op_export_request {
-	struct usb_device udev;
+	struct usbip_usb_device usbip_dev;
 } PACKED;
 
 struct op_export_reply {
@@ -104,7 +128,7 @@ struct op_export_reply {
 
 
 #define PACK_OP_EXPORT_REQUEST(pack, request)  do {\
-	pack_usb_device(pack, &(request)->udev);\
+	usbip_net_pack_usb_device(pack, &(request)->usbip_dev);\
 } while (0)
 
 #define PACK_OP_EXPORT_REPLY(pack, reply)  do {\
@@ -117,7 +141,7 @@ struct op_export_reply {
 #define OP_REP_UNEXPORT	(OP_REPLY   | OP_UNEXPORT)
 
 struct op_unexport_request {
-	struct usb_device udev;
+	struct usbip_usb_device usbip_dev;
 } PACKED;
 
 struct op_unexport_reply {
@@ -125,13 +149,11 @@ struct op_unexport_reply {
 } PACKED;
 
 #define PACK_OP_UNEXPORT_REQUEST(pack, request)  do {\
-	pack_usb_device(pack, &(request)->udev);\
+	usbip_net_pack_usb_device(pack, &(request)->usbip_dev);\
 } while (0)
 
 #define PACK_OP_UNEXPORT_REPLY(pack, reply)  do {\
 } while (0)
-
-
 
 /* ---------------------------------------------------------------------- */
 /* Negotiate IPSec encryption key. (still not used) */
@@ -156,7 +178,7 @@ struct op_crypkey_reply {
 #define OP_REP_DEVLIST	(OP_REPLY   | OP_DEVLIST)
 
 struct op_devlist_request {
-/* Struct or union must have at leat one member in MSC */
+/* Struct or union must have at least one member in MSC */
 	uint32_t _reserved;
 } PACKED;
 
@@ -166,15 +188,15 @@ struct op_devlist_reply {
 } PACKED;
 
 struct op_devlist_reply_extra {
-	struct usb_device    udev;
-	struct usb_interface uinf[];
+	struct usbip_usb_device    usbip_dev;
+	struct usbip_usb_interface usbip_inf[];
 } PACKED;
 
 #define PACK_OP_DEVLIST_REQUEST(pack, request)  do {\
 } while (0)
 
 #define PACK_OP_DEVLIST_REPLY(pack, reply)  do {\
-	pack_uint32_t(pack, &(reply)->ndev);\
+	usbip_net_pack_uint32_t(pack, &(reply)->ndev);\
 } while (0)
 
 
@@ -182,27 +204,24 @@ struct op_devlist_reply_extra {
 /* Declare Prototype Function                         */
 /* -------------------------------------------------- */
 
-void pack_uint32_t(int pack, uint32_t *num);
-void pack_uint16_t(int pack, uint16_t *num);
-void pack_usb_device(int pack, struct usb_device *udev);
-void pack_usb_interface(int pack, struct usb_interface *uinf);
+void usbip_net_pack_uint32_t(int pack, uint32_t *num);
+void usbip_net_pack_uint16_t(int pack, uint16_t *num);
+void usbip_net_pack_usb_device(int pack, struct usbip_usb_device *usbip_dev);
+void usbip_net_pack_usb_interface(int pack, struct usbip_usb_interface *usbip_inf);
 
-ssize_t usbip_recv(int sockfd, void *buff, size_t bufflen);
-ssize_t usbip_send(int sockfd, void *buff, size_t bufflen);
-int usbip_send_op_common(int sockfd, uint32_t code, uint32_t status);
-int usbip_recv_op_common(int sockfd, uint16_t *code);
-int usbip_set_reuseaddr(int sockfd);
-int usbip_set_nodelay(int sockfd);
-int usbip_set_keepalive(int sockfd);
-
-int tcp_connect(char *hostname, char *service);
-
-#define USBIP_PORT 3240
-#define USBIP_PORT_STRING "3240"
+ssize_t usbip_net_recv(int sockfd, void *buff, size_t bufflen);
+ssize_t usbip_net_send(int sockfd, void *buff, size_t bufflen);
+int usbip_net_send_op_common(int sockfd, uint32_t code, uint32_t status);
+int usbip_net_recv_op_common(int sockfd, uint16_t *code);
+int usbip_net_set_reuseaddr(int sockfd);
+int usbip_net_set_nodelay(int sockfd);
+int usbip_net_set_keepalive(int sockfd);
+int usbip_net_set_v6only(int sockfd);
+int usbip_net_tcp_connect(char *hostname, char *port);
 
 #ifdef __GNUC__
 #else
 #pragma pack(pop)
 #endif
 
-#endif
+#endif /* __USBIP_NETWORK_H */
