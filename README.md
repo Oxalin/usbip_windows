@@ -11,10 +11,19 @@ There are mostly 3 objectives to this fork:
 * Have a living source code where contributors can fix and add features as a community
 
 Any interested person willing to contribute to the code is welcome.
-* The first action will be do search, find and gather patches lying around in pull requests to the original source code and in the forum.
+* The first action will be to search, find and gather patches lying around in pull requests to the original source code and in the forum.
 * Next will be to have a driver compatible with Linux kernel 3.15 and newer.
 
 # Latest updates
+## January, 28th, 2019
+The project's development will not continue here. After discussing with KyungWoon Cho aka Cezuni, we will be working together from his directory. The goals, bugs and feature requests will be brought into this new joint venture. Any fixes missing from this new source code that were already incorporated under my repository will be ported to this new project.
+
+The development that was taking place in bringing the userspace tools and library from Linux to Windows (and other OSes) will also take a new life under KyungWoon's project.
+
+Please, visit this project and report any bug or feature request here: https://github.com/cezuni/usbip-win
+
+Persons willing to help are welcome to join the project.
+
 ## January, 8th, 2019
 My computer has been set back up to be able to continue porting the userspace tools. And by this, I means the current code available from Linux.
 
